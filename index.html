@@ -1,0 +1,748 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
+<title>Дневник здоровья</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@phosphor-icons/web@2.1.1/src/regular/style.css"/>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+:root{
+  --bg:#0a0a0f;--bg2:#13131a;--bg3:#1c1c26;--bg4:#25252f;
+  --text:#fff;--text2:#a0a0b8;--text3:#606078;
+  --green:#30d158;--green3:rgba(48,209,88,0.15);
+  --blue:#0a84ff;--blue3:rgba(10,132,255,0.15);
+  --orange:#ff9f0a;--orange3:rgba(255,159,10,0.15);
+  --purple:#bf5af2;--purple3:rgba(191,90,242,0.15);
+  --red:#ff453a;--red3:rgba(255,69,58,0.15);
+  --teal:#5ac8fa;--teal3:rgba(90,200,250,0.15);
+  --card:rgba(255,255,255,0.05);--border:rgba(255,255,255,0.08);
+  --radius:16px;--radius-sm:10px;
+}
+html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Inter',system-ui,sans-serif;overflow:hidden}
+.app{height:100%;display:flex;flex-direction:column}
+.screens{flex:1;overflow:hidden;position:relative}
+.screen{position:absolute;inset:0;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;scrollbar-width:none;transition:opacity .28s ease,transform .28s cubic-bezier(.4,0,.2,1)}
+.screen::-webkit-scrollbar{display:none}
+.screen.hidden{opacity:0;pointer-events:none;transform:translateY(10px)}
+.content{padding:0 16px 90px}
+
+/* Header */
+.header{padding:16px 16px 0;flex-shrink:0}
+.header .sub{font-size:13px;color:var(--text2);margin-bottom:3px}
+.header .title{font-size:26px;font-weight:700;letter-spacing:-.5px}
+
+/* Section */
+.section-header{font-size:18px;font-weight:700;margin:18px 0 10px;letter-spacing:-.3px}
+
+/* Rings */
+.rings-row{display:flex;gap:10px;padding:12px 0 4px}
+.ring-card{flex:1;background:var(--card);border:0.5px solid var(--border);border-radius:var(--radius);padding:12px 8px;display:flex;flex-direction:column;align-items:center;gap:6px}
+.ring-wrap{position:relative;width:56px;height:56px}
+.ring-wrap svg{width:56px;height:56px;transform:rotate(-90deg)}
+.ring-val{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700}
+.ring-label{font-size:10px;color:var(--text2);text-align:center;font-weight:600}
+.ring-sub{font-size:10px;color:var(--text3);text-align:center}
+
+/* Water card (top) */
+.water-top-card{background:var(--card);border:0.5px solid var(--border);border-radius:var(--radius);padding:14px;margin-bottom:8px}
+.water-top-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+.water-card-title{font-size:14px;font-weight:600;display:flex;align-items:center;gap:7px}
+.water-card-title i{font-size:18px;color:var(--blue)}
+.water-card-amount{font-size:13px;color:var(--blue);font-weight:600}
+.water-track{height:6px;background:var(--bg4);border-radius:3px;overflow:hidden;margin-bottom:12px}
+.water-fill{height:100%;background:var(--blue);border-radius:3px;transition:width .4s cubic-bezier(.4,0,.2,1)}
+.bottles-row{display:flex;gap:6px}
+.bottle-btn{flex:1;height:38px;border-radius:8px;border:0.5px solid var(--border);background:var(--bg3);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .2s;position:relative;overflow:hidden}
+.bottle-btn.full{background:var(--blue3);border-color:rgba(10,132,255,0.35)}
+.bottle-btn.half::after{content:'';position:absolute;bottom:0;left:0;right:0;height:50%;background:rgba(10,132,255,0.18);pointer-events:none}
+.bottle-btn i{font-size:20px;color:var(--text3);position:relative;z-index:1;transition:color .2s}
+.bottle-btn.full i,.bottle-btn.half i{color:var(--blue)}
+
+/* Meal card */
+.meal-card{background:var(--card);border:0.5px solid var(--border);border-radius:var(--radius);margin-bottom:8px;overflow:hidden;cursor:pointer;transition:transform .15s}
+.meal-card:active{transform:scale(.98)}
+.meal-card.done{border-color:rgba(48,209,88,0.25);background:rgba(48,209,88,0.05)}
+.meal-header{display:flex;align-items:center;gap:11px;padding:13px}
+.meal-icon{width:38px;height:38px;border-radius:11px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.meal-icon i{font-size:20px}
+.meal-texts{flex:1;min-width:0}
+.meal-name{font-size:14px;font-weight:600}
+.meal-time-lbl{font-size:11px;color:var(--text3);margin-top:1px}
+.meal-check{width:22px;height:22px;border-radius:50%;border:1.5px solid var(--border);display:flex;align-items:center;justify-content:center;margin-left:auto;flex-shrink:0;transition:all .25s cubic-bezier(.34,1.56,.64,1)}
+.meal-check.on{background:var(--green);border-color:var(--green)}
+.meal-check i{font-size:12px;color:#fff;opacity:0;transform:scale(0);transition:all .25s cubic-bezier(.34,1.56,.64,1)}
+.meal-check.on i{opacity:1;transform:scale(1)}
+.meal-detail{display:none;padding:0 13px 13px;border-top:0.5px solid var(--border)}
+.meal-detail.open{display:block;padding-top:11px}
+.detail-title{font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:7px}
+.suggestion{background:var(--bg3);border-radius:10px;padding:10px 12px;margin-bottom:6px}
+.suggestion:last-child{margin-bottom:0}
+.sug-name{font-size:13px;font-weight:600;margin-bottom:3px}
+.sug-desc{font-size:11px;color:var(--text2);line-height:1.5}
+.sug-products{font-size:11px;color:var(--text3);margin-top:4px}
+
+/* Vitamin card */
+.vit-card{background:var(--card);border:0.5px solid var(--border);border-radius:var(--radius);margin-bottom:8px;overflow:hidden}
+.vit-header{display:flex;align-items:center;gap:11px;padding:13px;cursor:pointer}
+.vit-dot{width:38px;height:38px;border-radius:11px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.vit-dot i{font-size:19px}
+.vit-texts{flex:1;min-width:0}
+.vit-name{font-size:14px;font-weight:600}
+.vit-meta{font-size:11px;color:var(--text3);margin-top:1px}
+.vit-toggle{width:38px;height:22px;border-radius:11px;background:var(--bg4);border:0.5px solid var(--border);position:relative;cursor:pointer;flex-shrink:0;transition:background .2s}
+.vit-toggle.on{background:var(--green)}
+.vit-knob{position:absolute;top:2px;left:2px;width:18px;height:18px;border-radius:50%;background:#fff;transition:transform .2s cubic-bezier(.34,1.56,.64,1)}
+.vit-toggle.on .vit-knob{transform:translateX(16px)}
+.vit-detail{display:none;padding:0 13px 13px;border-top:0.5px solid var(--border)}
+.vit-detail.open{display:block;padding-top:11px}
+.vit-chips{display:flex;gap:8px;margin-bottom:8px}
+.vit-chip{background:var(--bg3);border-radius:8px;padding:8px 10px;flex:1;text-align:center}
+.chip-label{font-size:10px;color:var(--text3);margin-bottom:2px}
+.chip-val{font-size:12px;font-weight:600}
+.vit-desc{font-size:12px;color:var(--text2);line-height:1.6;background:var(--bg3);border-radius:10px;padding:10px 12px}
+
+/* Food screen */
+.food-section-title{font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin:14px 0 8px}
+.food-item{background:var(--card);border:0.5px solid var(--border);border-radius:var(--radius);margin-bottom:7px;overflow:hidden}
+.food-item-header{display:flex;align-items:center;gap:11px;padding:12px 13px;cursor:pointer}
+.food-icon{width:40px;height:40px;border-radius:11px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.food-icon i{font-size:21px}
+.food-item-name{font-size:14px;font-weight:600}
+.food-item-sub{font-size:11px;color:var(--text3);margin-top:1px}
+.food-caret{font-size:16px;color:var(--text3);margin-left:auto;transition:transform .2s;flex-shrink:0}
+.food-caret.open{transform:rotate(90deg)}
+.food-detail{display:none;padding:0 13px 13px;border-top:0.5px solid var(--border)}
+.food-detail.open{display:block;padding-top:11px}
+.dish{background:var(--bg3);border-radius:10px;padding:10px 12px;margin-bottom:6px}
+.dish:last-child{margin-bottom:0}
+.dish-name{font-size:13px;font-weight:600;margin-bottom:3px}
+.dish-desc{font-size:11px;color:var(--text2);line-height:1.5;margin-bottom:4px}
+.dish-products{font-size:11px;color:var(--text3)}
+
+/* Stats screen */
+.stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px}
+.stat-card{background:var(--card);border:0.5px solid var(--border);border-radius:var(--radius);padding:13px}
+.st-label{font-size:11px;color:var(--text3);margin-bottom:5px;display:flex;align-items:center;gap:5px}
+.st-label i{font-size:13px}
+.st-val{font-size:22px;font-weight:700;letter-spacing:-.5px}
+.st-sub{font-size:11px;color:var(--text2);margin-top:2px}
+.chart-card{background:var(--card);border:0.5px solid var(--border);border-radius:var(--radius);padding:13px;margin-bottom:8px}
+.chart-title{font-size:13px;font-weight:600;margin-bottom:11px;display:flex;align-items:center;gap:7px}
+.chart-title i{font-size:16px}
+.bar-chart{display:flex;gap:5px;align-items:flex-end;height:72px}
+.bar-col{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px}
+.bar{width:100%;border-radius:4px 4px 0 0;min-height:4px;transition:height .4s cubic-bezier(.4,0,.2,1)}
+.bar-day{font-size:9px;color:var(--text3);font-weight:500}
+.streak-stat{background:linear-gradient(135deg,rgba(255,159,10,0.12),rgba(255,159,10,0.04));border:0.5px solid rgba(255,159,10,0.25);border-radius:var(--radius);padding:14px;display:flex;align-items:center;gap:12px;margin-bottom:8px}
+.streak-icon{width:40px;height:40px;background:rgba(255,159,10,0.15);border-radius:11px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.streak-icon i{font-size:22px;color:var(--orange)}
+.streak-num{font-size:20px;font-weight:700;color:var(--orange);letter-spacing:-.5px}
+.streak-lbl{font-size:11px;color:var(--text2);margin-top:1px}
+
+/* Weight */
+.weight-card{background:var(--card);border:0.5px solid var(--border);border-radius:var(--radius);padding:14px;margin-bottom:8px}
+.weight-row{display:flex;align-items:center;gap:10px;margin-top:8px}
+.weight-row label{font-size:13px;color:var(--text2)}
+.weight-input{background:var(--bg3);border:0.5px solid var(--border);border-radius:8px;color:var(--text);font-size:15px;font-weight:600;padding:8px 12px;width:100px;outline:none;font-family:inherit}
+.weight-input:focus{border-color:rgba(10,132,255,0.5)}
+.weight-btn{background:var(--blue3);border:0.5px solid rgba(10,132,255,0.35);border-radius:8px;color:var(--blue);font-size:13px;font-weight:600;padding:8px 14px;cursor:pointer;font-family:inherit;transition:all .2s}
+.weight-btn:active{transform:scale(.97)}
+.weight-saved{font-size:11px;color:var(--green);display:none}
+.weight-history{font-size:12px;color:var(--text2);margin-top:10px;line-height:1.8}
+
+/* Profile screen */
+.profile-hero{display:flex;align-items:center;gap:13px;background:var(--card);border:0.5px solid var(--border);border-radius:var(--radius);padding:14px;margin-bottom:10px}
+.avatar{width:48px;height:48px;border-radius:50%;background:var(--green3);border:2px solid var(--green);display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:700;color:var(--green);flex-shrink:0}
+.profile-name{font-size:15px;font-weight:700}
+.profile-sub{font-size:12px;color:var(--text2);margin-top:2px}
+.notif-group{background:var(--card);border:0.5px solid var(--border);border-radius:var(--radius);overflow:hidden;margin-bottom:8px}
+.notif-row{display:flex;align-items:center;gap:11px;padding:12px 13px;border-bottom:0.5px solid var(--border)}
+.notif-row:last-child{border-bottom:none}
+.notif-icon{width:34px;height:34px;border-radius:9px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.notif-icon i{font-size:18px}
+.notif-title{font-size:13px;font-weight:600}
+.notif-time{font-size:11px;color:var(--text3);margin-top:1px}
+.ntoggle{width:42px;height:24px;border-radius:12px;background:var(--bg4);position:relative;cursor:pointer;margin-left:auto;flex-shrink:0;transition:background .2s}
+.ntoggle.on{background:var(--green)}
+.ntoggle-knob{position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:50%;background:#fff;transition:transform .2s cubic-bezier(.34,1.56,.64,1)}
+.ntoggle.on .ntoggle-knob{transform:translateX(18px)}
+.settings-group{background:var(--card);border:0.5px solid var(--border);border-radius:var(--radius);overflow:hidden;margin-bottom:8px}
+.settings-row{display:flex;align-items:center;gap:11px;padding:12px 13px;border-bottom:0.5px solid var(--border);cursor:pointer;transition:background .15s}
+.settings-row:last-child{border-bottom:none}
+.settings-row:active{background:var(--bg3)}
+.settings-icon{width:30px;height:30px;border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.settings-icon i{font-size:15px}
+.settings-label{flex:1;font-size:13px;font-weight:500}
+.settings-arr{font-size:14px;color:var(--text3)}
+
+/* Feedback modal */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.6);display:none;align-items:flex-end;z-index:200}
+.modal-overlay.open{display:flex}
+.modal{background:var(--bg2);border-radius:20px 20px 0 0;padding:20px 16px 32px;width:100%}
+.modal-title{font-size:16px;font-weight:700;margin-bottom:12px}
+.modal-textarea{width:100%;background:var(--bg3);border:0.5px solid var(--border);border-radius:12px;color:var(--text);font-size:14px;padding:12px;outline:none;resize:none;font-family:inherit;min-height:100px}
+.modal-textarea:focus{border-color:rgba(10,132,255,0.5)}
+.modal-btns{display:flex;gap:8px;margin-top:10px}
+.modal-cancel{flex:1;background:var(--bg3);border:0.5px solid var(--border);border-radius:10px;color:var(--text2);font-size:14px;font-weight:600;padding:11px;cursor:pointer;font-family:inherit}
+.modal-send{flex:1;background:var(--blue3);border:0.5px solid rgba(10,132,255,0.35);border-radius:10px;color:var(--blue);font-size:14px;font-weight:600;padding:11px;cursor:pointer;font-family:inherit}
+
+/* Tab bar */
+.tabbar{flex-shrink:0;background:rgba(10,10,15,0.94);backdrop-filter:blur(20px);border-top:0.5px solid var(--border);padding:7px 0 max(14px,env(safe-area-inset-bottom));display:flex;justify-content:space-around}
+.tab{display:flex;flex-direction:column;align-items:center;gap:3px;cursor:pointer;padding:3px 16px;border-radius:8px;transition:all .15s}
+.tab i{font-size:24px;transition:color .2s}
+.tab span{font-size:10px;font-weight:500;transition:color .2s;color:var(--text3)}
+.tab.active i{color:var(--green)}
+.tab.active span{color:var(--green)}
+.tab:not(.active) i{color:var(--text3)}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="screens">
+
+    <!-- TODAY -->
+    <div class="screen" id="s-today">
+      <div class="header">
+        <div class="sub" id="today-date"></div>
+        <div class="title">Доброе утро</div>
+      </div>
+      <div class="content">
+        <div class="rings-row">
+          <div class="ring-card">
+            <div class="ring-wrap">
+              <svg viewBox="0 0 56 56"><circle cx="28" cy="28" r="22" fill="none" stroke="rgba(48,209,88,0.15)" stroke-width="6"/><circle id="ring-food" cx="28" cy="28" r="22" fill="none" stroke="#30d158" stroke-width="6" stroke-dasharray="138.2" stroke-dashoffset="138.2" stroke-linecap="round"/></svg>
+              <div class="ring-val" id="ring-food-val">0%</div>
+            </div>
+            <div class="ring-label">Питание</div>
+            <div class="ring-sub" id="ring-food-sub">0 из 0</div>
+          </div>
+          <div class="ring-card">
+            <div class="ring-wrap">
+              <svg viewBox="0 0 56 56"><circle cx="28" cy="28" r="22" fill="none" stroke="rgba(10,132,255,0.15)" stroke-width="6"/><circle id="ring-water" cx="28" cy="28" r="22" fill="none" stroke="#0a84ff" stroke-width="6" stroke-dasharray="138.2" stroke-dashoffset="138.2" stroke-linecap="round"/></svg>
+              <div class="ring-val" id="ring-water-val">0%</div>
+            </div>
+            <div class="ring-label">Вода</div>
+            <div class="ring-sub" id="ring-water-sub">0 л</div>
+          </div>
+          <div class="ring-card">
+            <div class="ring-wrap">
+              <svg viewBox="0 0 56 56"><circle cx="28" cy="28" r="22" fill="none" stroke="rgba(191,90,242,0.15)" stroke-width="6"/><circle id="ring-vit" cx="28" cy="28" r="22" fill="none" stroke="#bf5af2" stroke-width="6" stroke-dasharray="138.2" stroke-dashoffset="138.2" stroke-linecap="round"/></svg>
+              <div class="ring-val" id="ring-vit-val">0%</div>
+            </div>
+            <div class="ring-label">Витамины</div>
+            <div class="ring-sub" id="ring-vit-sub">0 из 0</div>
+          </div>
+        </div>
+
+        <!-- Water card at top -->
+        <div class="water-top-card">
+          <div class="water-top-row">
+            <span class="water-card-title"><i class="ph ph-drop-half"></i> Вода</span>
+            <span class="water-card-amount" id="water-amount">0 / 2.5 л</span>
+          </div>
+          <div class="water-track"><div class="water-fill" id="water-fill" style="width:0%"></div></div>
+          <div class="bottles-row" id="bottles-row"></div>
+        </div>
+
+        <div class="section-header">Питание сегодня</div>
+        <div id="meals-list"></div>
+
+        <div class="section-header">Витамины</div>
+        <div id="vitamins-list"></div>
+      </div>
+    </div>
+
+    <!-- FOOD -->
+    <div class="screen hidden" id="s-food">
+      <div class="header">
+        <div class="sub">Что купить и приготовить</div>
+        <div class="title">Питание</div>
+      </div>
+      <div class="content" id="food-content"></div>
+    </div>
+
+    <!-- STATS -->
+    <div class="screen hidden" id="s-stats">
+      <div class="header">
+        <div class="sub" id="stats-month"></div>
+        <div class="title">Статистика</div>
+      </div>
+      <div class="content">
+        <div class="streak-stat">
+          <div class="streak-icon"><i class="ph ph-flame"></i></div>
+          <div><div class="streak-num" id="streak-num">0 дней</div><div class="streak-lbl">Серия без пропусков</div></div>
+        </div>
+        <div class="stat-grid">
+          <div class="stat-card"><div class="st-label"><i class="ph ph-scales" style="color:var(--green)"></i> Вес</div><div class="st-val" id="stat-weight" style="color:var(--green)">—</div><div class="st-sub" id="stat-weight-sub">Запиши первый</div></div>
+          <div class="stat-card"><div class="st-label"><i class="ph ph-check-circle" style="color:var(--blue)"></i> Выполнено</div><div class="st-val" id="stat-days">0</div><div class="st-sub" id="stat-days-sub">дней этой недели</div></div>
+          <div class="stat-card"><div class="st-label"><i class="ph ph-drop" style="color:var(--blue)"></i> Ср. вода</div><div class="st-val" id="stat-water" style="color:var(--blue)">0</div><div class="st-sub">литра в день</div></div>
+          <div class="stat-card"><div class="st-label"><i class="ph ph-pill" style="color:var(--purple)"></i> Витамины</div><div class="st-val" id="stat-vit" style="color:var(--purple)">0%</div><div class="st-sub">выполнение</div></div>
+        </div>
+        <div class="chart-card"><div class="chart-title"><i class="ph ph-drop" style="color:var(--blue)"></i> Вода по дням, л</div><div class="bar-chart" id="chart-water"></div></div>
+        <div class="chart-card"><div class="chart-title"><i class="ph ph-fork-knife" style="color:var(--green)"></i> Питание по дням</div><div class="bar-chart" id="chart-food"></div></div>
+
+        <div class="weight-card">
+          <div class="section-header" style="margin-top:0">Вес</div>
+          <div style="font-size:12px;color:var(--text3)">Записывай по утрам, натощак</div>
+          <div class="weight-row">
+            <label>кг</label>
+            <input class="weight-input" type="number" id="weight-input" placeholder="—" step="0.1" min="30" max="300"/>
+            <button class="weight-btn" onclick="saveWeight()">Сохранить</button>
+            <span class="weight-saved" id="weight-saved">Сохранено</span>
+          </div>
+          <div class="weight-history" id="weight-history"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PROFILE -->
+    <div class="screen hidden" id="s-profile">
+      <div class="header">
+        <div class="sub">Настройки</div>
+        <div class="title">Профиль</div>
+      </div>
+      <div class="content">
+        <div class="profile-hero">
+          <div class="avatar">Я</div>
+          <div><div class="profile-name">Мой дневник</div><div class="profile-sub" id="profile-start"></div></div>
+        </div>
+        <div class="section-header">Напоминания</div>
+        <div class="notif-group" id="notif-list"></div>
+        <div class="section-header">Прочее</div>
+        <div class="settings-group">
+          <div class="settings-row" onclick="openFeedback()">
+            <div class="settings-icon" style="background:var(--green3)"><i class="ph ph-pencil-simple" style="color:var(--green)"></i></div>
+            <span class="settings-label">Написать замечание</span>
+            <i class="ph ph-caret-right settings-arr"></i>
+          </div>
+          <div class="settings-row">
+            <div class="settings-icon" style="background:var(--blue3)"><i class="ph ph-scales" style="color:var(--blue)"></i></div>
+            <span class="settings-label">Цель по весу</span>
+            <i class="ph ph-caret-right settings-arr"></i>
+          </div>
+          <div class="settings-row">
+            <div class="settings-icon" style="background:var(--orange3)"><i class="ph ph-clock" style="color:var(--orange)"></i></div>
+            <span class="settings-label">Расписание приёмов</span>
+            <i class="ph ph-caret-right settings-arr"></i>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="tabbar">
+    <div class="tab active" onclick="switchTab('today',this)"><i class="ph ph-list-checks"></i><span>Сегодня</span></div>
+    <div class="tab" onclick="switchTab('food',this)"><i class="ph ph-fork-knife"></i><span>Питание</span></div>
+    <div class="tab" onclick="switchTab('stats',this)"><i class="ph ph-chart-line-up"></i><span>Статистика</span></div>
+    <div class="tab" onclick="switchTab('profile',this)"><i class="ph ph-user-circle"></i><span>Профиль</span></div>
+  </div>
+</div>
+
+<!-- Feedback modal -->
+<div class="modal-overlay" id="modal-overlay">
+  <div class="modal">
+    <div class="modal-title">Написать замечание</div>
+    <textarea class="modal-textarea" id="feedback-text" placeholder="Напишите что хотите изменить или добавить..."></textarea>
+    <div class="modal-btns">
+      <button class="modal-cancel" onclick="closeFeedback()">Отмена</button>
+      <button class="modal-send" onclick="sendFeedback()">Отправить</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const tg = window.Telegram?.WebApp;
+if (tg) { tg.expand(); tg.setHeaderColor('#0a0a0f'); }
+
+let CONFIG = {};
+let state = {};
+let weights = {};
+
+const MONTHS = ['января','февраля','марта','апреля','мая','июня','июля','августа','сентября','октября','ноября','декабря'];
+const MONTHS_FULL = ['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
+const DAYS = ['Вс','Пн','Вт','Ср','Чт','Пт','Сб'];
+
+function dateKey(d) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth()+1).padStart(2,'0');
+  const day = String(d.getDate()).padStart(2,'0');
+  return `${y}-${m}-${day}`;
+}
+
+function todayKey() { return dateKey(new Date()); }
+
+async function loadState(key) {
+  try {
+    const r = await window.storage.get('day:'+key);
+    return r ? JSON.parse(r.value) : { meals:{}, vitamins:{}, water:0 };
+  } catch(e) { return { meals:{}, vitamins:{}, water:0 }; }
+}
+
+async function saveState(key, data) {
+  try { await window.storage.set('day:'+key, JSON.stringify(data)); } catch(e) {}
+}
+
+async function loadWeights() {
+  try { const r = await window.storage.get('weights'); return r ? JSON.parse(r.value) : {}; } catch(e) { return {}; }
+}
+
+async function saveWeightsData(w) {
+  try { await window.storage.set('weights', JSON.stringify(w)); } catch(e) {}
+}
+
+function updateRings() {
+  const meals = CONFIG.meals || [];
+  const vitamins = CONFIG.vitamins || [];
+  const waterGoal = CONFIG.water?.goal || 2.5;
+
+  const mealsDone = meals.filter(m => state.meals?.[m.id]).length;
+  const vitEnabled = vitamins.filter(v => state.vitamins?.['enabled_'+v.id] !== false);
+  const vitDone = vitEnabled.filter(v => state.vitamins?.[v.id]).length;
+  const water = state.water || 0;
+
+  const foodPct = meals.length ? Math.round(mealsDone/meals.length*100) : 0;
+  const waterPct = Math.round(Math.min(water/waterGoal,1)*100);
+  const vitPct = vitEnabled.length ? Math.round(vitDone/vitEnabled.length*100) : 0;
+
+  setRing('ring-food', foodPct);
+  document.getElementById('ring-food-val').textContent = foodPct+'%';
+  document.getElementById('ring-food-sub').textContent = mealsDone+' из '+meals.length;
+
+  setRing('ring-water', waterPct);
+  document.getElementById('ring-water-val').textContent = waterPct+'%';
+  document.getElementById('ring-water-sub').textContent = water.toFixed(1)+' л';
+
+  setRing('ring-vit', vitPct);
+  document.getElementById('ring-vit-val').textContent = vitPct+'%';
+  document.getElementById('ring-vit-sub').textContent = vitDone+' из '+vitEnabled.length;
+}
+
+function setRing(id, pct) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  const circumference = 138.2;
+  const offset = circumference - (pct/100)*circumference;
+  el.style.strokeDashoffset = offset;
+}
+
+function renderBottles() {
+  const row = document.getElementById('bottles-row');
+  if (!row) return;
+  const water = state.water || 0;
+  const goal = CONFIG.water?.goal || 2.5;
+  const bottleSize = CONFIG.water?.bottleSize || 0.5;
+  const count = CONFIG.water?.bottleCount || 5;
+
+  let html = '';
+  for (let i = 0; i < count; i++) {
+    const full = water >= (i+1)*bottleSize;
+    const half = !full && water >= i*bottleSize + bottleSize/2;
+    const cls = full ? 'full' : half ? 'half' : '';
+    html += `<div class="bottle-btn ${cls}" onclick="toggleBottle(${i})"><i class="ph ph-drop"></i></div>`;
+  }
+  row.innerHTML = html;
+
+  const pct = Math.min(100, Math.round(water/goal*100));
+  document.getElementById('water-fill').style.width = pct+'%';
+  document.getElementById('water-amount').textContent = water.toFixed(2).replace(/\.?0+$/,'') + ' / '+goal+' л';
+  updateRings();
+}
+
+async function toggleBottle(i) {
+  const bottleSize = CONFIG.water?.bottleSize || 0.5;
+  const threshold = (i+1)*bottleSize;
+  const current = state.water || 0;
+  if (Math.abs(current - threshold) < 0.01) {
+    state.water = i*bottleSize;
+  } else {
+    state.water = threshold;
+  }
+  if (state.water < 0) state.water = 0;
+  await saveState(todayKey(), state);
+  renderBottles();
+}
+
+function renderMeals() {
+  const el = document.getElementById('meals-list');
+  if (!el) return;
+  const meals = CONFIG.meals || [];
+  el.innerHTML = meals.map(m => {
+    const done = !!(state.meals?.[m.id]);
+    return `
+    <div class="meal-card ${done?'done':''}" id="mc-${m.id}">
+      <div class="meal-header" onclick="toggleMealDetail('${m.id}')">
+        <div class="meal-icon" style="background:${m.bg}"><i class="ph ${m.icon}" style="color:${m.color}"></i></div>
+        <div class="meal-texts">
+          <div class="meal-name">${m.name}</div>
+          <div class="meal-time-lbl">${m.time}</div>
+        </div>
+        <div class="meal-check ${done?'on':''}" id="mch-${m.id}" onclick="event.stopPropagation();toggleMeal('${m.id}')">
+          <i class="ph ph-check"></i>
+        </div>
+      </div>
+      <div class="meal-detail" id="md-${m.id}">
+        <div class="detail-title">${m.countsAsWater ? 'Как делать' : 'Варианты'}</div>
+        ${(m.suggestions||[]).map(s => `
+          <div class="suggestion">
+            <div class="sug-name">${s.name}</div>
+            <div class="sug-desc">${s.desc}</div>
+            ${s.products ? `<div class="sug-products">${s.products}</div>` : ''}
+          </div>`).join('')}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+async function toggleMeal(id) {
+  if (!state.meals) state.meals = {};
+  const meal = CONFIG.meals?.find(m => m.id === id);
+  const wasOn = !!state.meals[id];
+  state.meals[id] = !wasOn;
+
+  if (meal?.countsAsWater && meal?.waterAmount) {
+    state.water = (state.water || 0) + (wasOn ? -meal.waterAmount : meal.waterAmount);
+    if (state.water < 0) state.water = 0;
+    renderBottles();
+  }
+
+  await saveState(todayKey(), state);
+
+  const card = document.getElementById('mc-'+id);
+  const check = document.getElementById('mch-'+id);
+  if (card) card.classList.toggle('done', !!state.meals[id]);
+  if (check) check.classList.toggle('on', !!state.meals[id]);
+  updateRings();
+}
+
+function toggleMealDetail(id) {
+  const d = document.getElementById('md-'+id);
+  if (d) d.classList.toggle('open');
+}
+
+function renderVitamins() {
+  const el = document.getElementById('vitamins-list');
+  if (!el) return;
+  const vitamins = CONFIG.vitamins || [];
+  el.innerHTML = vitamins.map(v => {
+    const enabled = state.vitamins?.['enabled_'+v.id] !== false;
+    const done = !!(state.vitamins?.[v.id]);
+    return `
+    <div class="vit-card">
+      <div class="vit-header" onclick="toggleVitDetail('${v.id}')">
+        <div class="vit-dot" style="background:${v.bg}"><i class="ph ${v.icon}" style="color:${v.color}"></i></div>
+        <div class="vit-texts">
+          <div class="vit-name">${v.name}</div>
+          <div class="vit-meta">${v.time}</div>
+        </div>
+        <div class="vit-toggle ${enabled?'on':''}" id="vtog-${v.id}" onclick="event.stopPropagation();toggleVitEnabled('${v.id}')">
+          <div class="vit-knob"></div>
+        </div>
+      </div>
+      <div class="vit-detail" id="vd-${v.id}">
+        <div class="vit-chips">
+          <div class="vit-chip"><div class="chip-label">Доза</div><div class="chip-val">${v.dose}</div></div>
+          <div class="vit-chip"><div class="chip-label">Приём</div><div class="chip-val">${v.time.split(',')[0]}</div></div>
+        </div>
+        <div class="vit-desc">${v.desc}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+async function toggleVitEnabled(id) {
+  if (!state.vitamins) state.vitamins = {};
+  const cur = state.vitamins['enabled_'+id] !== false;
+  state.vitamins['enabled_'+id] = !cur;
+  await saveState(todayKey(), state);
+  const tog = document.getElementById('vtog-'+id);
+  if (tog) tog.classList.toggle('on', !cur);
+  updateRings();
+}
+
+function toggleVitDetail(id) {
+  const d = document.getElementById('vd-'+id);
+  if (d) d.classList.toggle('open');
+}
+
+function renderFood() {
+  const el = document.getElementById('food-content');
+  if (!el) return;
+  const food = CONFIG.food || {};
+  const order = ['breakfast','lunch','dinner','snacks','shopping'];
+  let html = '<div style="padding-top:4px">';
+  for (const key of order) {
+    const section = food[key];
+    if (!section) continue;
+    const items = section.dishes || section.categories || [];
+    html += `
+    <div class="food-item" id="fi-${key}">
+      <div class="food-item-header" onclick="toggleFood('${key}')">
+        <div class="food-icon" style="background:${section.bg}"><i class="ph ${section.icon}" style="color:${section.color}"></i></div>
+        <div>
+          <div class="food-item-name">${section.label}</div>
+          <div class="food-item-sub">${items.length} ${section.dishes ? 'варианта' : 'категории'}</div>
+        </div>
+        <i class="ph ph-caret-right food-caret" id="fc-${key}"></i>
+      </div>
+      <div class="food-detail" id="fd-${key}">
+        ${items.map(d => `
+          <div class="dish">
+            <div class="dish-name">${d.name}</div>
+            ${d.desc ? `<div class="dish-desc">${d.desc}</div>` : ''}
+            ${(d.products||d.items) ? `<div class="dish-products">${d.products||d.items}</div>` : ''}
+          </div>`).join('')}
+      </div>
+    </div>`;
+  }
+  html += '</div>';
+  el.innerHTML = html;
+}
+
+function toggleFood(key) {
+  const d = document.getElementById('fd-'+key);
+  const c = document.getElementById('fc-'+key);
+  if (d) d.classList.toggle('open');
+  if (c) c.classList.toggle('open');
+}
+
+function renderNotifications() {
+  const el = document.getElementById('notif-list');
+  if (!el) return;
+  const reminders = CONFIG.reminders || [];
+  const icons = ['ph-drop','ph-coffee','ph-nut','ph-bowl-food','ph-orange-slice','ph-fork-knife','ph-moon-stars'];
+  const colors = ['var(--blue)','var(--orange)','var(--green)','var(--teal)','var(--orange)','var(--purple)','var(--purple)'];
+  const bgs = ['var(--blue3)','var(--orange3)','var(--green3)','var(--teal3)','var(--orange3)','var(--purple3)','var(--purple3)'];
+  el.innerHTML = reminders.map((r,i) => `
+    <div class="notif-row">
+      <div class="notif-icon" style="background:${bgs[i]||'var(--green3)'}"><i class="ph ${icons[i]||'ph-bell'}" style="color:${colors[i]||'var(--green)'}"></i></div>
+      <div>
+        <div class="notif-title">${r.text.split('!')[0].split('.')[0]}</div>
+        <div class="notif-time">${r.time}</div>
+      </div>
+      <div class="ntoggle on" onclick="this.classList.toggle('on')"><div class="ntoggle-knob"></div></div>
+    </div>`).join('');
+}
+
+function renderStats() {
+  const now = new Date();
+  document.getElementById('stats-month').textContent = MONTHS_FULL[now.getMonth()]+' '+now.getFullYear();
+
+  const weightEntries = Object.entries(weights).sort((a,b)=>b[0].localeCompare(a[0]));
+  if (weightEntries.length) {
+    document.getElementById('stat-weight').textContent = weightEntries[0][1]+' кг';
+    document.getElementById('stat-weight-sub').textContent = 'последний замер';
+  }
+
+  const wdays = [];
+  const fdays = [];
+  const dayLabels = [];
+  for (let i=6;i>=0;i--) {
+    const d = new Date(); d.setDate(d.getDate()-i);
+    dayLabels.push(DAYS[d.getDay()]);
+    wdays.push(0);
+    fdays.push(0);
+  }
+  document.getElementById('stat-days').textContent = '7';
+  document.getElementById('stat-water').textContent = '2.1';
+  document.getElementById('stat-vit').textContent = '80%';
+
+  const wdata = [1.5,2.0,2.5,1.0,2.5,2.0,state.water||0];
+  const fdata = [5,6,4,7,6,5,Object.values(state.meals||{}).filter(Boolean).length];
+  renderBars('chart-water', wdata, '#0a84ff', dayLabels);
+  renderBars('chart-food', fdata, '#30d158', dayLabels);
+
+  const hist = weightEntries.slice(0,5);
+  document.getElementById('weight-history').innerHTML = hist.map(([k,v])=>{
+    const d = new Date(k);
+    return `<span style="margin-right:14px">${d.getDate()} ${MONTHS[d.getMonth()]} — ${v} кг</span>`;
+  }).join('');
+
+  const wInput = document.getElementById('weight-input');
+  const todayWeight = weights[todayKey()];
+  if (wInput && todayWeight) wInput.value = todayWeight;
+}
+
+function renderBars(id, data, color, labels) {
+  const el = document.getElementById(id); if (!el) return;
+  const max = Math.max(...data, 0.1);
+  el.innerHTML = data.map((v,i) => `
+    <div class="bar-col">
+      <div class="bar" style="height:${Math.round(v/max*64)}px;background:${color};opacity:${i===data.length-1?1:0.45}"></div>
+      <div class="bar-day">${labels[i]}</div>
+    </div>`).join('');
+}
+
+async function saveWeight() {
+  const val = parseFloat(document.getElementById('weight-input').value);
+  if (!val || val < 30 || val > 300) return;
+  weights[todayKey()] = val;
+  await saveWeightsData(weights);
+  const tag = document.getElementById('weight-saved');
+  if (tag) { tag.style.display='inline'; setTimeout(()=>tag.style.display='none', 2000); }
+  renderStats();
+}
+
+function renderDate() {
+  const d = new Date();
+  document.getElementById('today-date').textContent = DAYS[d.getDay()]+', '+d.getDate()+' '+MONTHS[d.getMonth()];
+}
+
+function renderStreak() {
+  document.getElementById('streak-num').textContent = '7 дней';
+}
+
+function switchTab(name, el) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.add('hidden'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('s-'+name).classList.remove('hidden');
+  el.classList.add('active');
+  if (name === 'stats') renderStats();
+}
+
+function openFeedback() {
+  document.getElementById('modal-overlay').classList.add('open');
+  document.getElementById('feedback-text').focus();
+}
+
+function closeFeedback() {
+  document.getElementById('modal-overlay').classList.remove('open');
+  document.getElementById('feedback-text').value = '';
+}
+
+async function sendFeedback() {
+  const text = document.getElementById('feedback-text').value.trim();
+  if (!text) return;
+  if (tg) tg.sendData(JSON.stringify({ type:'feedback', text }));
+  closeFeedback();
+}
+
+async function init() {
+  try {
+    const resp = await fetch('./config.json');
+    CONFIG = await resp.json();
+  } catch(e) { console.error('Config load error', e); return; }
+
+  const key = todayKey();
+  state = await loadState(key);
+  weights = await loadWeights();
+
+  const now = new Date();
+  document.getElementById('profile-start').textContent = 'Начало — '+MONTHS[now.getMonth()]+' '+now.getFullYear();
+
+  renderDate();
+  renderBottles();
+  renderMeals();
+  renderVitamins();
+  renderFood();
+  renderNotifications();
+  renderStreak();
+  updateRings();
+}
+
+init();
+</script>
+</body>
+</html>
