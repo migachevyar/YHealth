@@ -1,36 +1,111 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-    <meta charset="UTF-8">
-    <title>YHealth</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>YHealth</title>
+
+<style>
+:root {
+  --bg: #121212;
+  --text: #ffffff;
+  --text2: #aaaaaa;
+  --green: #4CAF50;
+}
+
+body {
+  margin: 0;
+  font-family: Arial, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+}
+
+.container {
+  padding: 16px;
+}
+
+.card {
+  background: #1e1e1e;
+  padding: 16px;
+  border-radius: 12px;
+  margin-bottom: 12px;
+}
+
+.small {
+  color: var(--text2);
+}
+
+.progress {
+  height: 8px;
+  background: #333;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.progress div {
+  height: 100%;
+  background: var(--green);
+  width: 0%;
+}
+
+button {
+  background: var(--green);
+  color: white;
+  border: none;
+  padding: 10px;
+  border-radius: 8px;
+}
+</style>
 </head>
+
 <body>
 
-<h1>Доброе утро</h1>
+<div class="container">
 
-<div>
-    <h2>Питание</h2>
-    <p>0 из 0</p>
+  <h2>Доброе утро</h2>
+
+  <div class="card">
+    <div>Питание</div>
+    <div class="small">0 из 0</div>
+  </div>
+
+  <div class="card">
+    <div>Вода</div>
+    <div class="small">0 л</div>
+    <div class="progress"><div id="waterBar"></div></div>
+  </div>
+
+  <div class="card">
+    <div>Витамины</div>
+    <div class="small">0 из 0</div>
+  </div>
+
 </div>
 
-<div>
-    <h2>Вода</h2>
-    <p>0 / 2.5 л</p>
-</div>
+<script>
 
-<div>
-    <h2>Витамины</h2>
-    <p>0%</p>
-</div>
+// пример состояния
+let state = {
+  water: 0,
+  waterGoal: 2.5
+};
 
-<hr>
+// обновление воды
+function updateWater() {
+  const percent = (state.water / state.waterGoal) * 100;
+  document.getElementById('waterBar').style.width = percent + "%";
+}
 
-<nav>
-    <button>Сегодня</button>
-    <button>Питание</button>
-    <button>Статистика</button>
-    <button>Профиль</button>
-</nav>
+// фикс: функция была оборвана
+function buildVitDesc(vit, profile) {
+  return vit.desc || '';
+}
+
+// запуск
+updateWater();
+
+</script>
 
 </body>
 </html>
