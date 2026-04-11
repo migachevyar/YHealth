@@ -8,9 +8,9 @@ from http.server import HTTPServer, BaseHTTPRequestHandler
 from urllib.parse import urlparse, parse_qs
 
 logger = logging.getLogger(**name**)
-BOT_TOKEN = os.environ.get(“BOT_TOKEN“, ““)
+BOT_TOKEN = os.environ.get("BOT_TOKEN", "")
 
-# { user_id: { “days“:{}, “weights“:{}, “vit_state“:{}, “profile“:{} } }
+# { user_id: { "days":{}, "weights":{}, "vit_state":{}, "profile":{} } }
 
 USER_DATA = {}
 DATA_LOCK = threading.Lock()
@@ -18,17 +18,17 @@ DATA_LOCK = threading.Lock()
 def verify_telegram_data(init_data: str):
 try:
 parsed = parse_qs(init_data, keep_blank_values=True)
-hash_val = parsed.get(“hash“, [““])[0]
+hash_val = parsed.get("hash", [""])[0]
 if not hash_val:
 return None
-parts = [f“{k}={v[0]}“ for k, v in sorted(parsed.items()) if k != “hash“]
-data_check_string = “\n“.join(parts)
-secret_key = hmac.new(b“WebAppData“, BOT_TOKEN.encode(), hashlib.sha256).digest()
+parts = [f"{k}={v[0]}" for k, v in sorted(parsed.items()) if k != "hash"]
+data_check_string = "\n".join(parts)
+secret_key = hmac.new(b"WebAppData", BOT_TOKEN.encode(), hashlib.sha256).digest()
 computed = hmac.new(secret_key, data_check_string.encode(), hashlib.sha256).hexdigest()
 if not hmac.compare_digest(computed, hash_val):
 return None
-user = json.loads(parsed.get(“user“, [“{}“])[0])
-return user.get(“id“)
+user = json.loads(parsed.get("user", ["{}"])[0])
+return user.get("id")
 except Exception:
 return None
 
@@ -149,9 +149,9 @@ def do_POST(self):
 ```
 
 def run():
-port = int(os.environ.get(“PORT“, 8080))
-httpd = HTTPServer((“0.0.0.0“, port), AppHandler)
-logger.info(f“Server started on port {port}“)
+port = int(os.environ.get("PORT", 8080))
+httpd = HTTPServer(("0.0.0.0", port), AppHandler)
+logger.info(f"Server started on port {port}")
 httpd.serve_forever()
 
 def start_server():
