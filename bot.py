@@ -5,8 +5,9 @@ from datetime import time
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo
 from telegram.ext import (
     Application, CommandHandler, MessageHandler,
-    CallbackQueryHandler, ContextTypes, filters
+    ContextTypes, filters
 )
+from server import start_server
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -96,6 +97,9 @@ def main():
         raise ValueError("BOT_TOKEN не задан в переменных окружения")
     if not WEBAPP_URL:
         raise ValueError("WEBAPP_URL не задан в переменных окружения")
+
+    start_server()
+    logger.info("Mini App server started")
 
     app = Application.builder().token(TOKEN).build()
     app.add_handler(CommandHandler("start", start))
