@@ -355,11 +355,17 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Inter'
 
 <script>
 const tg = window.Telegram?.WebApp;
+const TG_USER_ID = tg?.initDataUnsafe?.user?.id || null;
+const INIT_DATA = tg?.initData || "";
+const API = "";
+
 if (tg) {
   tg.expand();
+  tg.ready();
   tg.setHeaderColor('#0a0a0f');
   tg.setBackgroundColor('#0a0a0f');
   if (tg.requestFullscreen) tg.requestFullscreen();
+  if (tg.disableVerticalSwipes) tg.disableVerticalSwipes();
 }
 
 let CONFIG = {};
@@ -379,23 +385,54 @@ function dateKey(d) {
 
 function todayKey() { return dateKey(new Date()); }
 
-async function loadState(key) {
+let _serverData = { days: {}, weights: {}, vit_state: {} };
+let _serverLoaded = false;
+
+async function loadServerData() {
+  if (_serverLoaded) return;
   try {
-    const r = await window.storage.get('day:'+key);
-    return r ? JSON.parse(r.value) : { meals:{}, vitamins:{}, water:0 };
-  } catch(e) { return { meals:{}, vitamins:{}, water:0 }; }
+    const r = await fetch(API + '/api/data', {
+      headers: { 'X-Init-Data': INIT_DATA }
+    });
+    if (r.ok) {
+      _serverData = await r.json();
+    }
+  } catch(e) {}
+  _serverLoaded = true;
+}
+
+async function loadState(key) {
+  await loadServerData();
+  return _serverData.days[key] || { meals:{}, vitamins:{}, water:0 };
 }
 
 async function saveState(key, data) {
-  try { await window.storage.set('day:'+key, JSON.stringify(data)); } catch(e) {}
+  _serverData.days[key] = data;
+  try {
+    await fetch(API + '/api/day', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Init-Data': INIT_DATA },
+      body: JSON.stringify({ date: key, data })
+    });
+  } catch(e) {}
 }
 
 async function loadWeights() {
-  try { const r = await window.storage.get('weights'); return r ? JSON.parse(r.value) : {}; } catch(e) { return {}; }
+  await loadServerData();
+  return _serverData.weights || {};
 }
 
 async function saveWeightsData(w) {
-  try { await window.storage.set('weights', JSON.stringify(w)); } catch(e) {}
+  _serverData.weights = w;
+  const latest = Object.entries(w).sort((a,b)=>b[0].localeCompare(a[0]))[0];
+  if (!latest) return;
+  try {
+    await fetch(API + '/api/weight', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Init-Data': INIT_DATA },
+      body: JSON.stringify({ date: latest[0], value: latest[1] })
+    });
+  } catch(e) {}
 }
 
 function updateRings() {
@@ -639,31 +676,52 @@ function renderStats() {
   if (weightEntries.length) {
     document.getElementById('stat-weight').textContent = weightEntries[0][1]+' кг';
     document.getElementById('stat-weight-sub').textContent = 'последний замер';
+  } else {
+    document.getElementById('stat-weight').textContent = '—';
+    document.getElementById('stat-weight-sub').textContent = 'ещё не записан';
   }
 
-  const wdays = [];
-  const fdays = [];
   const dayLabels = [];
-  for (let i=6;i>=0;i--) {
-    const d = new Date(); d.setDate(d.getDate()-i);
-    dayLabels.push(DAYS[d.getDay()]);
-    wdays.push(0);
-    fdays.push(0);
-  }
-  document.getElementById('stat-days').textContent = '7';
-  document.getElementById('stat-water').textContent = '2.1';
-  document.getElementById('stat-vit').textContent = '80%';
+  const wdata = [];
+  const fdata = [];
+  let daysWithActivity = 0;
+  let totalWater = 0;
+  let totalVitDays = 0;
+  let vitDaysCount = 0;
+  const allDays = _serverData.days || {};
+  const meals = CONFIG.meals || [];
+  const vitamins = CONFIG.vitamins || [];
 
-  const wdata = [1.5,2.0,2.5,1.0,2.5,2.0,state.water||0];
-  const fdata = [5,6,4,7,6,5,Object.values(state.meals||{}).filter(Boolean).length];
+  for (let i=6; i>=0; i--) {
+    const d = new Date(); d.setDate(d.getDate()-i);
+    const key = dateKey(d);
+    dayLabels.push(DAYS[d.getDay()]);
+    const dayData = allDays[key] || {};
+    const w = dayData.water || 0;
+    const mealsDone = meals.filter(m => dayData.meals?.[m.id]).length;
+    const vitEnabled = vitamins.filter(v => dayData.vitamins?.['enabled_'+v.id] !== false);
+    const vitDone = vitEnabled.filter(v => dayData.vitamins?.[v.id]).length;
+    wdata.push(w);
+    fdata.push(mealsDone);
+    totalWater += w;
+    if (mealsDone > 0 || w > 0) daysWithActivity++;
+    if (vitEnabled.length > 0) { totalVitDays += vitDone / vitEnabled.length * 100; vitDaysCount++; }
+  }
+
+  const avgWater = daysWithActivity > 0 ? (totalWater / 7).toFixed(1) : '0';
+  const vitPct = vitDaysCount > 0 ? Math.round(totalVitDays / vitDaysCount) : 0;
+
+  document.getElementById('stat-days').textContent = daysWithActivity;
+  document.getElementById('stat-water').textContent = avgWater;
+  document.getElementById('stat-vit').textContent = vitPct + '%';
+
   renderBars('chart-water', wdata, '#0a84ff', dayLabels);
   renderBars('chart-food', fdata, '#30d158', dayLabels);
 
   const hist = weightEntries.slice(0,5);
-  document.getElementById('weight-history').innerHTML = hist.map(([k,v])=>{
-    const d = new Date(k);
-    return `<span style="margin-right:14px">${d.getDate()} ${MONTHS[d.getMonth()]} — ${v} кг</span>`;
-  }).join('');
+  document.getElementById('weight-history').innerHTML = hist.length
+    ? hist.map(([k,v])=>{ const d=new Date(k); return `<span style="margin-right:14px">${d.getDate()} ${MONTHS[d.getMonth()]} — ${v} кг</span>`; }).join('')
+    : '<span style="color:var(--text3)">Записей пока нет</span>';
 
   const wInput = document.getElementById('weight-input');
   const todayWeight = weights[todayKey()];
@@ -696,7 +754,21 @@ function renderDate() {
 }
 
 function renderStreak() {
-  document.getElementById('streak-num').textContent = '7 дней';
+  const allDays = _serverData.days || {};
+  const meals = CONFIG.meals || [];
+  let streak = 0;
+  const today = new Date(); today.setHours(0,0,0,0);
+  for (let i=0; i<365; i++) {
+    const d = new Date(today); d.setDate(today.getDate()-i);
+    const key = dateKey(d);
+    const dayData = allDays[key] || {};
+    const mealsDone = meals.filter(m => dayData.meals?.[m.id]).length;
+    const water = dayData.water || 0;
+    if (mealsDone > 0 || water > 0) streak++;
+    else if (i > 0) break;
+  }
+  const el = document.getElementById('streak-num');
+  if (el) el.textContent = streak + (streak === 1 ? ' день' : streak < 5 ? ' дня' : ' дней');
 }
 
 function switchTab(name, el) {
