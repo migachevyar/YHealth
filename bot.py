@@ -9,7 +9,8 @@ from telegram.ext import (
 )
 from server import start_server
 
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.WARNING)
+logging.getLogger('httpx').setLevel(logging.WARNING)
 logger = logging.getLogger(__name__)
 
 TOKEN = os.environ.get("BOT_TOKEN", "")
@@ -106,7 +107,7 @@ def main():
     app.add_handler(CommandHandler("remind", setup_reminders))
     app.add_handler(CommandHandler("stop", stop_reminders))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_feedback))
-    app.run_polling()
+    app.run_polling(drop_pending_updates=True, close_loop=False)
 
 
 if __name__ == "__main__":
