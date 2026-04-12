@@ -177,7 +177,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Inter'
 /* ─── ONBOARDING ─── */
 .ob-overlay{position:absolute;inset:0;background:var(--bg);z-index:300;display:flex;flex-direction:column;transition:opacity .4s ease}
 .ob-overlay.hidden{opacity:0;pointer-events:none}
-.ob-inner{flex:1;display:flex;flex-direction:column;padding:calc(110px + var(--safe-top)) 24px 24px;overflow-y:auto;scrollbar-width:none}
+.ob-inner{flex:1;display:flex;flex-direction:column;padding:calc(60px + var(--safe-top)) 24px 24px;overflow-y:auto;scrollbar-width:none}
 .ob-inner::-webkit-scrollbar{display:none}
 .ob-step{display:none;flex-direction:column;flex:1}
 .ob-step.active{display:flex}
@@ -374,7 +374,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Inter'
 </div>
 
 <!-- ONBOARDING OVERLAY -->
-<div class="ob-overlay hidden" id="ob-overlay">
+<div class="ob-overlay hidden" id="ob-overlay" onclick="dismissKeyboard(event)">
   <div class="ob-inner">
     <div class="ob-progress" id="ob-progress"></div>
 
@@ -386,7 +386,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Inter'
       <div class="ob-body">
         <div class="ob-field">
           <div class="ob-label">Как тебя зовут?</div>
-          <input class="ob-input" id="ob-name" type="text" placeholder="Введи имя"/>
+          <input class="ob-input" id="ob-name" type="text" placeholder="Введи имя" onkeydown="if(event.key==='Enter')this.blur()" inputmode="text"/>
         </div>
         <div class="ob-label" style="margin-bottom:10px">Твоя главная цель</div>
         <div class="ob-goal-list">
@@ -1147,6 +1147,12 @@ async function loadAppWithProfile() {
 }
 
 // ─── INIT ───
+function dismissKeyboard(e) {
+  if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA' && e.target.tagName !== 'BUTTON') {
+    document.activeElement?.blur();
+  }
+}
+
 async function init() {
   try {
     const resp = await fetch('./config.json');
