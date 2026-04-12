@@ -74,6 +74,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Inter'
 .sug-desc{font-size:13px;color:var(--text2);line-height:1.5}
 .sug-products{font-size:13px;color:var(--text3);margin-top:4px}
 .vit-card{background:var(--card);border:0.5px solid var(--border);border-radius:var(--radius);margin-bottom:8px;overflow:hidden}
+.vit-card.vit-done{border-color:rgba(48,209,88,0.25);background:rgba(48,209,88,0.04)}
 .vit-header{display:flex;align-items:center;gap:12px;padding:14px;cursor:pointer}
 .vit-dot{width:48px;height:48px;border-radius:14px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
 .vit-dot i{font-size:24px}
@@ -157,7 +158,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Inter'
 .settings-icon i{font-size:16px}
 .settings-label{flex:1;font-size:15px;font-weight:500}
 .settings-arr{font-size:14px;color:var(--text3)}
-.tabbar{flex-shrink:0;background:rgba(10,10,15,0.94);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border-top:0.5px solid var(--border);padding:8px 0 calc(10px + var(--safe-bot));display:flex;justify-content:space-around}
+.tabbar{flex-shrink:0;background:rgba(10,10,15,0.94);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border-top:0.5px solid var(--border);padding:8px 0 calc(20px + env(safe-area-inset-bottom,0px));display:flex;justify-content:space-around}
 .tab{display:flex;flex-direction:column;align-items:center;gap:3px;cursor:pointer;padding:3px 16px}
 .tab i{font-size:26px;transition:color .2s}
 .tab span{font-size:11px;font-weight:600;transition:color .2s;color:var(--text3)}
@@ -334,8 +335,10 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Inter'
           <div class="avatar" id="profile-avatar">Я</div>
           <div><div class="profile-name" id="profile-name-el">Мой дневник</div><div class="profile-sub" id="profile-start"></div></div>
         </div>
-        <div class="section-header">Напоминания</div>
-        <div class="notif-group" id="notif-list"></div>
+        <div class="section-header">Напоминания о еде</div>
+        <div id="notif-list"></div>
+        <div class="section-header">Витамины — время приёма</div>
+        <div id="vit-notif-list"></div>
         <div class="section-header">Прочее</div>
         <div class="settings-group">
           <div class="settings-row" onclick="openFeedback()">
@@ -374,8 +377,8 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Inter'
 </div>
 
 <!-- ONBOARDING OVERLAY -->
-<div class="ob-overlay hidden" id="ob-overlay" onclick="dismissKeyboard(event)">
-  <div class="ob-inner">
+<div class="ob-overlay hidden" id="ob-overlay">
+  <div class="ob-inner" onclick="if(event.target===this)document.activeElement?.blur()">
     <div class="ob-progress" id="ob-progress"></div>
 
     <!-- Step 1: Welcome + Goal -->
@@ -448,26 +451,25 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Inter'
     <div class="ob-step" id="ob-step-2">
       <div class="ob-icon" style="background:var(--orange3)"><i class="ph ph-clock" style="color:var(--orange)"></i></div>
       <div class="ob-title">График питания</div>
-      <div class="ob-sub">Когда обычно завтракаешь? Мы рассчитаем оптимальное время для всех приёмов.</div>
+      <div class="ob-sub">Когда завтракаешь? Рассчитаем оптимальное время. Потом сможешь поменять любое время.</div>
       <div class="ob-body">
         <div class="ob-field">
           <div class="ob-label">Время завтрака</div>
-          <div class="ob-select-row">
-            <button class="ob-sel" onclick="selectBreakfast('7:00',this)">7:00</button>
-            <button class="ob-sel" onclick="selectBreakfast('8:00',this)">8:00</button>
-            <button class="ob-sel" onclick="selectBreakfast('9:00',this)">9:00</button>
-            <button class="ob-sel" onclick="selectBreakfast('10:00',this)">10:00</button>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">
+            <button type="button" class="ob-sel" onclick="selectBreakfast('7:00',this)">7:00</button>
+            <button type="button" class="ob-sel" onclick="selectBreakfast('7:30',this)">7:30</button>
+            <button type="button" class="ob-sel active" onclick="selectBreakfast('8:00',this)">8:00</button>
+            <button type="button" class="ob-sel" onclick="selectBreakfast('8:30',this)">8:30</button>
+            <button type="button" class="ob-sel" onclick="selectBreakfast('9:00',this)">9:00</button>
+            <button type="button" class="ob-sel" onclick="selectBreakfast('9:30',this)">9:30</button>
+            <button type="button" class="ob-sel" onclick="selectBreakfast('10:00',this)">10:00</button>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;margin-top:6px">
+            <span style="font-size:13px;color:var(--text3)">Своё время:</span>
+            <input id="ob-breakfast-custom" type="time" value="08:00" style="background:var(--bg3);border:0.5px solid var(--border);border-radius:8px;color:var(--text);font-size:14px;padding:6px 10px;font-family:inherit;outline:none" oninput="selectBreakfastCustom(this.value)"/>
           </div>
         </div>
-        <div class="ob-field">
-          <div class="ob-label">Сколько раз в день ешь?</div>
-          <div class="ob-select-row">
-            <button class="ob-sel" onclick="selectMealCount(3,this)">3 раза</button>
-            <button class="ob-sel" onclick="selectMealCount(4,this)">4 раза</button>
-            <button class="ob-sel active" onclick="selectMealCount(5,this)">5 раз</button>
-          </div>
-        </div>
-        <div id="ob-meal-preview" style="margin-top:16px;background:var(--bg3);border-radius:14px;padding:14px"></div>
+        <div id="ob-meal-preview" style="margin-top:16px;background:var(--bg3);border-radius:14px;padding:14px;overflow:hidden"></div>
       </div>
       <div class="ob-footer">
         <button class="ob-btn" onclick="obNext()">Далее</button>
@@ -599,7 +601,7 @@ async function saveProfile(profile) {
 
 // ─── ONBOARDING DATA ───
 const OB_FOOD_CATS = [
-  { label:'Белок', items:[
+  { label:'Белок (строит мышцы, даёт сытость)', color:'var(--blue)', items:[
     { id:'eggs', label:'Яйца', icon:'ph-egg', meal:'breakfast' },
     { id:'chicken', label:'Курица', icon:'ph-bird', meal:'lunch' },
     { id:'turkey', label:'Индейка', icon:'ph-bird', meal:'lunch' },
@@ -610,14 +612,14 @@ const OB_FOOD_CATS = [
     { id:'shrimp', label:'Креветки', icon:'ph-fish', meal:'dinner' },
     { id:'salmon', label:'Лосось', icon:'ph-fish', meal:'dinner' },
   ]},
-  { label:'Молочные', items:[
+  { label:'Молочное (белок + кальций)', color:'var(--teal)', items:[
     { id:'cottage', label:'Творог', icon:'ph-jar', meal:'breakfast' },
     { id:'kefir', label:'Кефир', icon:'ph-jar', meal:'snack' },
     { id:'yogurt', label:'Греческий йогурт', icon:'ph-jar', meal:'snack' },
     { id:'eggs_boiled', label:'Варёные яйца', icon:'ph-egg', meal:'snack' },
     { id:'cheese', label:'Сыр', icon:'ph-jar', meal:'breakfast' },
   ]},
-  { label:'Овощи', items:[
+  { label:'Овощи (клетчатка, витамины, ноль калорий)', color:'var(--green)', items:[
     { id:'broccoli', label:'Брокколи', icon:'ph-leaf', meal:'dinner' },
     { id:'cucumber', label:'Огурцы', icon:'ph-leaf', meal:'breakfast' },
     { id:'tomato', label:'Помидоры', icon:'ph-leaf', meal:'breakfast' },
@@ -631,7 +633,7 @@ const OB_FOOD_CATS = [
     { id:'celery', label:'Сельдерей', icon:'ph-leaf', meal:'snack' },
     { id:'avocado', label:'Авокадо', icon:'ph-leaf', meal:'breakfast' },
   ]},
-  { label:'Гарниры', items:[
+  { label:'Сложные углеводы (энергия, клетчатка)', color:'var(--orange)', items:[
     { id:'buckwheat', label:'Гречка', icon:'ph-grains', meal:'lunch' },
     { id:'rice', label:'Рис', icon:'ph-grains', meal:'lunch' },
     { id:'oatmeal', label:'Овсянка', icon:'ph-grains', meal:'breakfast' },
@@ -641,7 +643,7 @@ const OB_FOOD_CATS = [
     { id:'chickpea', label:'Нут', icon:'ph-grains', meal:'lunch' },
     { id:'quinoa', label:'Киноа', icon:'ph-grains', meal:'lunch' },
   ]},
-  { label:'Фрукты и ягоды', items:[
+  { label:'Фрукты и ягоды (витамины, клетчатка, сахар)', color:'var(--purple)', items:[
     { id:'apple', label:'Яблоко', icon:'ph-apple-logo', meal:'snack' },
     { id:'banana', label:'Банан', icon:'ph-leaf', meal:'snack' },
     { id:'orange', label:'Апельсин', icon:'ph-orange-slice', meal:'snack' },
@@ -649,20 +651,20 @@ const OB_FOOD_CATS = [
     { id:'grape', label:'Виноград', icon:'ph-leaf', meal:'snack' },
     { id:'pear', label:'Груша', icon:'ph-leaf', meal:'snack' },
   ]},
-  { label:'Перекусы', items:[
+  { label:'Перекусы (белок + полезные жиры)', color:'var(--green)', items:[
     { id:'nuts', label:'Орехи', icon:'ph-nut', meal:'snack' },
     { id:'bread_rye', label:'Хлебцы ржаные', icon:'ph-grains', meal:'snack' },
     { id:'chia', label:'Семена чиа', icon:'ph-leaf', meal:'breakfast' },
     { id:'protein_bar', label:'Протеиновый батончик', icon:'ph-lightning', meal:'snack' },
     { id:'dried_fruits', label:'Сухофрукты', icon:'ph-leaf', meal:'snack' },
   ]},
-  { label:'Напитки', items:[
+  { label:'Напитки (без сахара — ОК)', color:'var(--blue)', items:[
     { id:'water', label:'Вода', icon:'ph-drop', meal:'all' },
     { id:'coffee', label:'Кофе', icon:'ph-coffee', meal:'breakfast' },
     { id:'tea', label:'Чай', icon:'ph-coffee', meal:'breakfast' },
     { id:'green_tea', label:'Зелёный чай', icon:'ph-leaf', meal:'snack' },
   ]},
-  { label:'Лучше заменить', items:[
+  { label:'⚠ Лучше заменить (вред здоровью)', color:'var(--red)', items:[
     { id:'chips', label:'Чипсы', icon:'ph-prohibit', meal:'none', healthy:false, alt:'Орехи или хлебцы' },
     { id:'sweets', label:'Сладкое', icon:'ph-cake', meal:'none', healthy:false, alt:'Творожный десерт или фрукты' },
     { id:'soda', label:'Газировка', icon:'ph-drop', meal:'none', healthy:false, alt:'Вода с лимоном' },
@@ -744,43 +746,89 @@ function obBack() {
 
 function selectBreakfast(time, el) {
   obProfile.breakfastTime = time;
+  obProfile.mealSchedule = {};
   document.querySelectorAll('#ob-step-2 .ob-sel').forEach(s=>s.classList.remove('active'));
   el.classList.add('active');
+  const ci = document.getElementById('ob-breakfast-custom');
+  if(ci) ci.value = time.length===4 ? '0'+time : time;
   renderMealPreview();
 }
 
-function selectMealCount(n, el) {
-  obProfile.mealCount = n;
-  document.querySelectorAll('#ob-step-2 .ob-select-row:last-of-type .ob-sel').forEach(s=>s.classList.remove('active'));
-  el.classList.add('active');
-  renderMealPreview();
-}
-
-function calcMealTimes(breakfastTime, count) {
-  const [h,m] = breakfastTime.split(':').map(Number);
-  const start = h * 60 + m;
-  const names = ['Завтрак','Перекус 1','Обед','Перекус 2','Ужин','После тренировки'];
-  const gaps5 = [0, 180, 180, 180, 180];
-  const gaps4 = [0, 210, 210, 210];
-  const gaps3 = [0, 270, 270];
-  const gaps = count===3?gaps3:count===4?gaps4:gaps5;
-  const meals = [];
-  let cur = start;
-  for(let i=0;i<count;i++){
-    cur += gaps[i];
-    const hh = Math.floor(cur/60)%24;
-    const mm = cur%60;
-    meals.push({ name: names[i], time: `${String(hh).padStart(2,'0')}:${String(mm).padStart(2,'0')}` });
-  }
-  return meals;
+function calcMealTimes(breakfastTime) {
+  // Scientific basis: meals every 3-4h, dinner no later than 19:30
+  // Source: circadian rhythm research, metabolic studies
+  const [h,m] = (breakfastTime||'8:00').split(':').map(Number);
+  const breakfast = h * 60 + m;
+  
+  const fmt = (mins) => {
+    const hh = Math.floor(mins/60)%24;
+    const mm = mins%60;
+    return String(hh).padStart(2,'0')+':'+String(mm).padStart(2,'0');
+  };
+  
+  // Snack 1: breakfast + 2.5h
+  const snack1 = breakfast + 150;
+  // Lunch: breakfast + 4.5-5h (but not later than 14:30)
+  const lunch = Math.min(breakfast + 270, 14*60+30);
+  // Snack 2: lunch + 2.5h (but not later than 17:30)
+  const snack2 = Math.min(lunch + 150, 17*60+30);
+  // Dinner: snack2 + 1.5h (but no later than 19:30, no earlier than 18:00)
+  const dinner = Math.min(Math.max(snack2 + 90, 18*60), 19*60+30);
+  
+  return [
+    { id:'breakfast', name:'Завтрак', time: fmt(breakfast), enabled:true },
+    { id:'snack1', name:'Перекус 1', time: fmt(snack1), enabled:true },
+    { id:'lunch', name:'Обед', time: fmt(lunch), enabled:true },
+    { id:'snack2', name:'Перекус 2', time: fmt(snack2), enabled:true },
+    { id:'dinner', name:'Ужин', time: fmt(dinner), enabled:true },
+  ];
 }
 
 function renderMealPreview() {
   const el = document.getElementById('ob-meal-preview');
   if(!el) return;
-  const meals = calcMealTimes(obProfile.breakfastTime, obProfile.mealCount);
-  el.innerHTML = '<div style="font-size:12px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px">Ваш график</div>' +
-    meals.map(m=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:0.5px solid var(--border)"><span style="font-size:14px;color:var(--text)">${m.name}</span><span style="font-size:14px;font-weight:700;color:var(--green)">${m.time}</span></div>`).join('');
+  const meals = calcMealTimes(obProfile.breakfastTime||'8:00');
+  // Store calculated times in profile
+  if(!obProfile.mealSchedule) obProfile.mealSchedule = {};
+  meals.forEach(m => { if(!obProfile.mealSchedule[m.id]) obProfile.mealSchedule[m.id] = { time: m.time, enabled: true }; else obProfile.mealSchedule[m.id].time = obProfile.mealSchedule[m.id].time || m.time; });
+  
+  el.innerHTML = '<div style="font-size:12px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px">Ваш график — можно изменить время</div>' +
+    meals.map(m => {
+      const saved = obProfile.mealSchedule[m.id] || {};
+      const t = saved.time || m.time;
+      const en = saved.enabled !== false;
+      return `<div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:0.5px solid var(--border)">
+        <div style="width:20px;height:20px;border-radius:50%;border:1.5px solid ${en?'var(--green)':'var(--border)'};background:${en?'var(--green)':'transparent'};cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0" onclick="toggleMealEnabled('${m.id}',this)">
+          ${en?'<i class="ph ph-check" style="font-size:10px;color:#000"></i>':''}
+        </div>
+        <span style="font-size:14px;color:${en?'var(--text)':'var(--text3)'};flex:1">${m.name}</span>
+        <input type="time" value="${t}" style="background:var(--bg4);border:0.5px solid var(--border);border-radius:8px;color:var(--green);font-size:14px;font-weight:700;padding:4px 8px;font-family:inherit;outline:none;width:88px" onchange="updateMealTime('${m.id}',this.value)" ${en?'':'disabled'}/>
+      </div>`;
+    }).join('') + '<div style="font-size:11px;color:var(--text3);margin-top:8px">Нажми на кружок чтобы убрать приём</div>';
+}
+
+function toggleMealEnabled(id, el) {
+  if(!obProfile.mealSchedule) obProfile.mealSchedule = {};
+  if(!obProfile.mealSchedule[id]) obProfile.mealSchedule[id] = {};
+  const cur = obProfile.mealSchedule[id].enabled !== false;
+  obProfile.mealSchedule[id].enabled = !cur;
+  renderMealPreview();
+}
+
+function updateMealTime(id, val) {
+  if(!obProfile.mealSchedule) obProfile.mealSchedule = {};
+  if(!obProfile.mealSchedule[id]) obProfile.mealSchedule[id] = {};
+  obProfile.mealSchedule[id].time = val;
+}
+
+function selectBreakfastCustom(val) {
+  if(!val) return;
+  const norm = val.replace(/^(\d):/, '0$1:');
+  obProfile.breakfastTime = norm;
+  if(obProfile.mealSchedule) obProfile.mealSchedule = {};
+  // Deselect quick buttons
+  document.querySelectorAll('#ob-step-2 .ob-sel').forEach(s=>s.classList.remove('active'));
+  renderMealPreview();
 }
 
 function selectGoal(goal, el) {
@@ -799,7 +847,8 @@ function renderFoodChips() {
   const el = document.getElementById('ob-food-chips');
   let html = '';
   OB_FOOD_CATS.forEach(cat => {
-    html += `<div style="width:100%;margin-bottom:4px;margin-top:10px"><div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">${cat.label}</div><div style="display:flex;flex-wrap:wrap;gap:7px">`;
+    const catColor = cat.color || 'var(--text3)';
+    html += `<div style="width:100%;margin-bottom:4px;margin-top:12px"><div style="font-size:12px;font-weight:700;color:${catColor};margin-bottom:8px">${cat.label}</div><div style="display:flex;flex-wrap:wrap;gap:7px">`;
     cat.items.forEach(f => {
       const active = obProfile.foods.includes(f.id);
       const isUnhealthy = f.healthy === false;
@@ -1054,6 +1103,7 @@ function buildVitaminsFromProfile(profile) {
       enabled: true,
       desc: buildVitDesc(v, profile),
       time: getVitTime(v.id),
+      notifTime: calcVitNotifTime(v.id, profile).time,
     }));
 }
 
@@ -1084,14 +1134,66 @@ function getVitDoseForProfile(vit, profile) {
 }
 
 function getVitTime(id) {
-  const times = { omega:'Утро, с едой', vitd:'Утро, с едой', vitc:'Утро, через день', magnesium:'Вечер, перед сном', zinc:'День, с едой', creatine:'Ежедневно', vitb12:'Утро', iron:'Утро, натощак', calcium:'День, с едой', collagen:'Утро, натощак' };
+  const times = { omega:'Утро, с едой', vita:'Утро, с едой', vitd:'Утро, с едой', vitc:'Утро, через день', vitb_complex:'Утро, с едой', vitb12:'Утро, с едой', magnesium:'Вечер, за 30–60 мин до сна', zinc:'Обед или ужин, с едой', creatine:'Ежедневно, в любое время', vitb9:'Утро, с едой', iron:'Утро, натощак (за 30 мин до еды)', calcium:'Обед, с едой', collagen:'Утро, натощак', coq10:'Обед, с едой', probiotics:'Утро, за 30 мин до еды' };
   return times[id] || 'Ежедневно';
 }
 
+function calcVitNotifTime(id, profile) {
+  // Calculate actual notification time based on meal schedule
+  const sched = profile?.mealSchedule || {};
+  const breakfastTime = profile?.breakfastTime || '8:00';
+  const meals = calcMealTimes(breakfastTime);
+  const getTime = (mealId, offsetMins) => {
+    const meal = sched[mealId]?.time || meals.find(m=>m.id===mealId)?.time || '08:00';
+    const [h,m] = meal.split(':').map(Number);
+    const total = h*60 + m + offsetMins;
+    const hh = Math.floor(total/60)%24;
+    const mm = total%60;
+    return String(hh).padStart(2,'0')+':'+String(mm).padStart(2,'0');
+  };
+  const vitTiming = {
+    omega: calcVitTimeStr(getTime('breakfast',0), 'с завтраком'),
+    vita: calcVitTimeStr(getTime('breakfast',0), 'с завтраком'),
+    vitd: calcVitTimeStr(getTime('breakfast',0), 'с завтраком'),
+    vitc: calcVitTimeStr(getTime('breakfast',0), 'с завтраком, через день'),
+    vitb_complex: calcVitTimeStr(getTime('breakfast',0), 'с завтраком'),
+    vitb12: calcVitTimeStr(getTime('breakfast',0), 'с завтраком'),
+    magnesium: calcVitTimeStr('22:00', 'за 30 мин до сна'),
+    zinc: calcVitTimeStr(getTime('lunch',0), 'с обедом'),
+    creatine: calcVitTimeStr(getTime('breakfast',30), 'через 30 мин после завтрака'),
+    vitb9: calcVitTimeStr(getTime('breakfast',0), 'с завтраком'),
+    iron: calcVitTimeStr(getTime('breakfast',-30), 'за 30 мин до завтрака'),
+    calcium: calcVitTimeStr(getTime('lunch',0), 'с обедом'),
+    collagen: calcVitTimeStr(getTime('breakfast',-15), 'за 15 мин до завтрака'),
+    coq10: calcVitTimeStr(getTime('lunch',0), 'с обедом'),
+    probiotics: calcVitTimeStr(getTime('breakfast',-30), 'за 30 мин до завтрака'),
+  };
+  return vitTiming[id] || { time:'08:00', label:'Ежедневно' };
+}
+
+function calcVitTimeStr(time, label) {
+  return { time, label };
+}
+
 function buildVitDesc(vit, profile) {
-  const { sex, age, goal } = profile;
-  const base = { omega:'Принимай с едой — жирорастворимый. Снижает воспаление, поддерживает сердце и суставы.', vitd:'Принимай с едой. Критически важен при дефиците солнца. K2 помогает кальцию идти в кости.', vitc:'Через день достаточно. В сезон простуд можно ежедневно 1–2 недели.', magnesium:'Цитрат усваивается лучше оксида. Улучшает сон и восстановление. Эффект накопительный.', zinc:'Не принимай натощак — тошнота. Поддерживает иммунитет и восстановление мышц.', creatine:'Размешай в воде. 2 месяца приём, 1 месяц перерыв. Увеличивает силу и объём мышц.', vitb12:'Важен для энергии и нервной системы. Особенно при усталости.', iron:'Натощак лучше усваивается. Запивай водой или соком, не молоком.', calcium:'С витамином D усваивается лучше. Не принимай одновременно с железом.', collagen:'Натощак или между приёмами пищи. Результат через 4–8 недель.' };
-  return base[vit.id] || '';
+  const descs = {
+    omega:'Принимай с едой — жирорастворимый. Если капсулы 500 мг — 4 капсулы/день, если 1000 мг — 2 капсулы/день. Снижает воспаление, поддерживает сердце и суставы.',
+    vita:'Принимай с едой. Обычно 1 таблетка/день. Не превышай дозу — жирорастворимый накапливается. Часто входит в состав мультивитаминов.',
+    vitd:'Принимай с едой. Обычно 1 капсула/день (2000–4000 МЕ). Комплекс D3+K2 — идеальный вариант. Критически важен зимой и осенью.',
+    vitc:'1 таблетка/день (500–1000 мг). Через день — норма для поддержки. В сезон простуд — ежедневно 1–2 недели. Хорошо переносится.',
+    vitb_complex:'1 таблетка комплекса с завтраком. Содержит все витамины группы B. Может окрашивать мочу в жёлтый — это нормально.',
+    vitb12:'1 таблетка (500 мкг) в день. Или сублингвальная (под язык) — лучше усваивается. При дефиците — инъекции у врача.',
+    magnesium:'1–2 таблетки цитрата магния (150–200 мг) за час до сна. Оксид магния — дешевле, но усваивается хуже. Курс без перерыва.',
+    zinc:'1 таблетка (15–25 мг) в обед с едой. Никогда натощак — тошнота. Пиколинат или цитрат цинка усваиваются лучше оксида.',
+    creatine:'1 мерная ложка (5 г) порошка в воде или соке. Ежедневно, 2 месяца приём — 1 месяц перерыв. Загрузочная фаза не нужна.',
+    vitb9:'1 таблетка (400 мкг) в день с едой. Продаётся как "фолиевая кислота". Входит в большинство B-комплексов.',
+    iron:'1 таблетка натощак, за 30 мин до завтрака. Запивай водой — не молоком и не чаем. Может вызывать тёмный стул — это нормально.',
+    calcium:'1 таблетка (500 мг) с обедом. Не принимай вместе с железом — мешают усвоению друг друга. Карбонат кальция — с едой, цитрат — можно без.',
+    collagen:'5–10 г порошка утром натощак или 1–2 капсулы. Гидролизованный коллаген (пептиды) — лучшая форма. Результат через 4–8 недель.',
+    coq10:'1 капсула (100–200 мг) с обедом. Убихинол усваивается лучше убихинона — ищи на упаковке. Принимай с жирной едой.',
+    probiotics:'1 капсула или пакетик утром за 30 мин до еды. Хранить в холодильнике если указано. Курс 1–3 месяца.',
+  };
+  return descs[vit.id] || vit.desc || '';
 }
 
 // ─── RINGS ───
@@ -1141,7 +1243,8 @@ function renderBottles() {
   row.innerHTML = html;
   const pct = Math.min(100, Math.round(water/goal*100));
   document.getElementById('water-fill').style.width = pct+'%';
-  document.getElementById('water-amount').textContent = water.toFixed(2).replace(/\.?0+$/, '')||'0'+' / '+goal+' л';
+  const wStr = water === 0 ? '0' : water.toFixed(1).replace(/\.0$/, '');
+  document.getElementById('water-amount').textContent = wStr + ' / ' + goal + ' л';
   updateRings();
 }
 
@@ -1203,21 +1306,44 @@ function renderVitamins() {
   const vitamins = userProfile ? buildVitaminsFromProfile(userProfile) : (CONFIG.vitamins||[]);
   el.innerHTML = vitamins.map(v=>{
     const enabled = state.vitamins?.['enabled_'+v.id] !== false;
-    return `<div class="vit-card">
+    const done = !!(state.vitamins?.[v.id]);
+    const timing = userProfile ? calcVitNotifTime(v.id, userProfile) : { time:'', label: v.time||'' };
+    return `<div class="vit-card ${done?'vit-done':''}">
       <div class="vit-header" onclick="toggleVitDetail('${v.id}')">
         <div class="vit-dot" style="background:${v.bg}"><i class="ph ${v.icon}" style="color:${v.color}"></i></div>
-        <div class="vit-texts"><div class="vit-name">${v.name}</div><div class="vit-meta">${v.time}</div></div>
-        <div class="vit-toggle ${enabled?'on':''}" id="vtog-${v.id}" onclick="event.stopPropagation();toggleVitEnabled('${v.id}')"><div class="vit-knob"></div></div>
+        <div class="vit-texts">
+          <div class="vit-name">${v.name}</div>
+          <div class="vit-meta" style="display:flex;align-items:center;gap:6px">
+            ${timing.time ? `<span style="color:${v.color};font-weight:600">${timing.time}</span>` : ''}
+            <span>${timing.label}</span>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;margin-left:auto">
+          <div class="meal-check ${done?'on':''}" id="vch-${v.id}" onclick="event.stopPropagation();toggleVitDone('${v.id}')" style="flex-shrink:0">
+            <i class="ph ph-check"></i>
+          </div>
+        </div>
       </div>
       <div class="vit-detail" id="vd-${v.id}">
         <div class="vit-chips">
           <div class="vit-chip"><div class="chip-label">Доза</div><div class="chip-val">${v.dose}</div></div>
-          <div class="vit-chip"><div class="chip-label">Приём</div><div class="chip-val">${(v.time||'').split(',')[0]}</div></div>
+          <div class="vit-chip"><div class="chip-label">Время</div><div class="chip-val" style="color:${v.color}">${timing.time||'—'}</div></div>
         </div>
         <div class="vit-desc">${v.desc}</div>
       </div>
     </div>`;
   }).join('');
+}
+
+async function toggleVitDone(id) {
+  if(!state.vitamins) state.vitamins={};
+  state.vitamins[id] = !state.vitamins[id];
+  await saveState(todayKey(), state);
+  const card = document.querySelector(`#vch-${id}`)?.closest('.vit-card');
+  const check = document.getElementById('vch-'+id);
+  if(check) check.classList.toggle('on', !!state.vitamins[id]);
+  if(card) card.classList.toggle('vit-done', !!state.vitamins[id]);
+  updateRings();
 }
 
 async function toggleVitEnabled(id) {
@@ -1241,19 +1367,69 @@ function renderFood() {
   const order = ['breakfast','lunch','dinner','snacks','shopping'];
   let html = '<div style="padding-top:4px">';
 
-  // Goal recommendations banner
-  if(userProfile?.goal) {
-    const goalInfo = {
-      lose_weight: { title:'Цель: Сбросить вес', color:'var(--red)', bg:'rgba(255,69,58,0.08)', border:'rgba(255,69,58,0.2)', tips:['Белок 2 г/кг веса в день — сохраняет мышцы при дефиците','Дефицит 300–500 ккал — оптимальная скорость похудения','Клетчатка 25–30 г/день — сытость и здоровье кишечника','Убрать сахар и простые углеводы (хлеб, сладкое, сок)','Последний приём пищи за 3 часа до сна']},
-      build_muscle: { title:'Цель: Набрать мышцы', color:'var(--blue)', bg:'rgba(10,132,255,0.08)', border:'rgba(10,132,255,0.2)', tips:['Белок 2.2–2.5 г/кг веса — строительный материал мышц','Профицит 200–300 ккал — рост без лишнего жира','Углеводы до и после тренировки — энергия и восстановление','Сон 8 часов — мышцы растут во время сна','Крeatин 5 г/день — доказанный эффект на силу и объём']},
-      maintain: { title:'Цель: Поддержать форму', color:'var(--green)', bg:'rgba(48,209,88,0.08)', border:'rgba(48,209,88,0.2)', tips:['Белок 1.6–1.8 г/кг веса — поддержание мышц','Средиземноморская диета — лучшая доказательная база','Разнообразие продуктов — все микронутриенты','Минимум обработанных продуктов и фастфуда','Регулярность важнее строгости — 80/20 правило']},
-    }[userProfile.goal];
-    if(goalInfo) {
-      html += `<div style="background:${goalInfo.bg};border:0.5px solid ${goalInfo.border};border-radius:var(--radius);padding:14px;margin-bottom:12px">
-        <div style="font-size:14px;font-weight:700;color:${goalInfo.color};margin-bottom:10px"><i class="ph ph-target"></i> ${goalInfo.title}</div>
-        ${goalInfo.tips.map(t=>`<div style="font-size:13px;color:var(--text2);margin-bottom:6px;display:flex;gap:8px"><span style="color:${goalInfo.color};flex-shrink:0">→</span>${t}</div>`).join('')}
-      </div>`;
-    }
+  // Personalized nutrition recommendations
+  if(userProfile?.goal && userProfile?.weight) {
+    const w = userProfile.weight || 80;
+    const h = userProfile.height || 175;
+    const age = userProfile.age || 30;
+    const sex = userProfile.sex || 'male';
+    const goal = userProfile.goal;
+    
+    // Mifflin-St Jeor BMR
+    const bmr = sex==='male' ? 10*w + 6.25*h - 5*age + 5 : 10*w + 6.25*h - 5*age - 161;
+    // Sedentary to lightly active (office + 3x gym)
+    const tdee = Math.round(bmr * 1.375);
+    
+    const proteinG = goal==='build_muscle' ? Math.round(w*2.3) : goal==='lose_weight' ? Math.round(w*2.0) : Math.round(w*1.8);
+    const targetCal = goal==='build_muscle' ? tdee+250 : goal==='lose_weight' ? tdee-400 : tdee;
+    const fatG = Math.round(targetCal * 0.25 / 9);
+    const carbG = Math.round((targetCal - proteinG*4 - fatG*9) / 4);
+    const fiberG = goal==='lose_weight' ? 30 : 25;
+    
+    // Protein food examples
+    const proteinExamples = [
+      `${Math.round(proteinG/26)} яиц`,
+      `${Math.round(proteinG/0.31)}г куриной грудки`,
+      `${Math.round(proteinG/0.18)}г творога 5%`,
+      `${Math.round(proteinG/0.25)}г тунца`
+    ];
+    
+    const goalColors = { lose_weight:'var(--red)', build_muscle:'var(--blue)', maintain:'var(--green)' };
+    const goalBgs = { lose_weight:'rgba(255,69,58,0.08)', build_muscle:'rgba(10,132,255,0.08)', maintain:'rgba(48,209,88,0.08)' };
+    const goalBorders = { lose_weight:'rgba(255,69,58,0.2)', build_muscle:'rgba(10,132,255,0.2)', maintain:'rgba(48,209,88,0.2)' };
+    const goalTitles = { lose_weight:'Цель: Сбросить вес', build_muscle:'Цель: Набрать мышцы', maintain:'Цель: Поддержать форму' };
+    const col = goalColors[goal], bg = goalBgs[goal], bord = goalBorders[goal];
+    
+    html += `<div style="background:${bg};border:0.5px solid ${bord};border-radius:var(--radius);padding:14px;margin-bottom:12px">
+      <div style="font-size:15px;font-weight:700;color:${col};margin-bottom:12px"><i class="ph ph-target"></i> ${goalTitles[goal]}</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">
+        <div style="background:rgba(0,0,0,0.2);border-radius:10px;padding:10px">
+          <div style="font-size:11px;color:var(--text3);margin-bottom:3px">КАЛОРИИ/ДЕНЬ</div>
+          <div style="font-size:20px;font-weight:800;color:${col}">${targetCal}</div>
+          <div style="font-size:10px;color:var(--text3)">ккал</div>
+        </div>
+        <div style="background:rgba(0,0,0,0.2);border-radius:10px;padding:10px">
+          <div style="font-size:11px;color:var(--text3);margin-bottom:3px">БЕЛОК/ДЕНЬ</div>
+          <div style="font-size:20px;font-weight:800;color:var(--blue)">${proteinG}</div>
+          <div style="font-size:10px;color:var(--text3)">грамм</div>
+        </div>
+        <div style="background:rgba(0,0,0,0.2);border-radius:10px;padding:10px">
+          <div style="font-size:11px;color:var(--text3);margin-bottom:3px">ЖИРЫ/ДЕНЬ</div>
+          <div style="font-size:20px;font-weight:800;color:var(--orange)">${fatG}</div>
+          <div style="font-size:10px;color:var(--text3)">грамм</div>
+        </div>
+        <div style="background:rgba(0,0,0,0.2);border-radius:10px;padding:10px">
+          <div style="font-size:11px;color:var(--text3);margin-bottom:3px">УГЛЕВОДЫ/ДЕНЬ</div>
+          <div style="font-size:20px;font-weight:800;color:var(--purple)">${carbG}</div>
+          <div style="font-size:10px;color:var(--text3)">грамм</div>
+        </div>
+      </div>
+      <div style="font-size:13px;font-weight:600;color:var(--text2);margin-bottom:6px">Белок ${proteinG}г — как набрать:</div>
+      ${proteinExamples.map(e=>`<div style="font-size:13px;color:var(--text2);margin-bottom:4px;display:flex;gap:8px"><span style="color:${col}">→</span>${e}</div>`).join('')}
+      <div style="font-size:13px;font-weight:600;color:var(--text2);margin-top:10px;margin-bottom:6px">Клетчатка ${fiberG}г — как набрать:</div>
+      <div style="font-size:13px;color:var(--text2);margin-bottom:4px;display:flex;gap:8px"><span style="color:${col}">→</span>${Math.round(fiberG/2.6)}г брокколи + ${Math.round(fiberG/2)}г овсянки</div>
+      <div style="font-size:13px;color:var(--text2);margin-bottom:4px;display:flex;gap:8px"><span style="color:${col}">→</span>Или: 2 яблока + 150г гречки + 200г овощей</div>
+    </div>`;
   }
 
   if(userProfile?.foodAlts?.length) {
@@ -1320,15 +1496,100 @@ function toggleFood(key) {
 function renderNotifications() {
   const el = document.getElementById('notif-list');
   if(!el) return;
-  const reminders = CONFIG.reminders || [];
-  const icons = ['ph-drop','ph-coffee','ph-nut','ph-bowl-food','ph-orange-slice','ph-fork-knife','ph-moon-stars'];
-  const colors = ['var(--blue)','var(--orange)','var(--green)','var(--teal)','var(--orange)','var(--purple)','var(--purple)'];
-  const bgs = ['var(--blue3)','var(--orange3)','var(--green3)','var(--teal3)','var(--orange3)','var(--purple3)','var(--purple3)'];
-  el.innerHTML = reminders.map((r,i)=>`<div class="notif-row">
-    <div class="notif-icon" style="background:${bgs[i]||'var(--green3)'}"><i class="ph ${icons[i]||'ph-bell'}" style="color:${colors[i]||'var(--green)'}"></i></div>
-    <div><div class="notif-title">${r.text.split('!')[0].split('.')[0]}</div><div class="notif-time">${r.time}</div></div>
-    <div class="ntoggle on" onclick="this.classList.toggle('on')"><div class="ntoggle-knob"></div></div>
-  </div>`).join('');
+  
+  // Build meal schedule from profile
+  const meals = userProfile ? buildMealsFromProfile(userProfile) : [];
+  const mealConfig = [
+    { icon:'ph-drop', color:'var(--blue)', bg:'var(--blue3)' },
+    { icon:'ph-coffee', color:'var(--orange)', bg:'var(--orange3)' },
+    { icon:'ph-nut', color:'var(--green)', bg:'var(--green3)' },
+    { icon:'ph-bowl-food', color:'var(--teal)', bg:'var(--teal3)' },
+    { icon:'ph-orange-slice', color:'var(--orange)', bg:'var(--orange3)' },
+    { icon:'ph-fork-knife', color:'var(--purple)', bg:'var(--purple3)' },
+    { icon:'ph-lightning', color:'var(--green)', bg:'var(--green3)' },
+  ];
+  
+  if(!userProfile?.mealSchedule && meals.length === 0) {
+    el.innerHTML = '<div style="font-size:14px;color:var(--text3);padding:14px">Сначала настрой профиль</div>';
+    return;
+  }
+  
+  const notifTimes = userProfile?.notifTimes || {};
+  
+  const rows = meals.map((m,i) => {
+    const cfg = mealConfig[i] || mealConfig[0];
+    const savedTime = notifTimes['meal_'+m.id] || m.time;
+    const on = notifTimes['meal_'+m.id+'_on'] !== false;
+    return `<div class="notif-row" style="border-bottom:0.5px solid var(--border)">
+      <div class="notif-icon" style="background:${cfg.bg}"><i class="ph ${cfg.icon}" style="color:${cfg.color}"></i></div>
+      <div style="flex:1">
+        <div class="notif-title">${m.name}</div>
+        <input type="time" value="${savedTime}" style="background:transparent;border:none;color:var(--text3);font-size:13px;font-family:inherit;outline:none;margin-top:2px" onchange="saveNotifTime('meal_${m.id}',this.value)"/>
+      </div>
+      <div class="ntoggle ${on?'on':''}" onclick="toggleNotif('meal_${m.id}_on',this)"><div class="ntoggle-knob"></div></div>
+    </div>`;
+  });
+  
+  el.innerHTML = `<div class="notif-group">${rows.join('')}<div style="padding:10px 14px;display:flex;justify-content:flex-end"><button onclick="resetNotifTimes()" style="background:transparent;border:none;color:var(--text3);font-size:12px;cursor:pointer;font-family:inherit">↺ Сбросить по умолчанию</button></div></div>`;
+}
+
+function renderVitNotifications() {
+  const el = document.getElementById('vit-notif-list');
+  if(!el) return;
+  if(!userProfile) { el.innerHTML = '<div style="font-size:14px;color:var(--text3);padding:14px">Сначала настрой профиль</div>'; return; }
+  
+  const vitamins = buildVitaminsFromProfile(userProfile);
+  const notifTimes = userProfile?.notifTimes || {};
+  
+  const rows = vitamins.map(v => {
+    const timing = calcVitNotifTime(v.id, userProfile);
+    const savedTime = notifTimes['vit_'+v.id] || timing.time;
+    const on = notifTimes['vit_'+v.id+'_on'] !== false;
+    return `<div class="notif-row" style="border-bottom:0.5px solid var(--border)">
+      <div class="notif-icon" style="background:${v.bg}"><i class="ph ${v.icon}" style="color:${v.color}"></i></div>
+      <div style="flex:1">
+        <div class="notif-title">${v.name}</div>
+        <input type="time" value="${savedTime}" style="background:transparent;border:none;color:var(--text3);font-size:13px;font-family:inherit;outline:none;margin-top:2px" onchange="saveNotifTime('vit_${v.id}',this.value)"/>
+        <div style="font-size:11px;color:var(--text3)">${timing.label}</div>
+      </div>
+      <div class="ntoggle ${on?'on':''}" onclick="toggleNotif('vit_${v.id}_on',this)"><div class="ntoggle-knob"></div></div>
+    </div>`;
+  });
+  
+  el.innerHTML = `<div class="notif-group">${rows.join('')}<div style="padding:10px 14px;display:flex;justify-content:flex-end"><button onclick="resetVitNotifTimes()" style="background:transparent;border:none;color:var(--text3);font-size:12px;cursor:pointer;font-family:inherit">↺ Сбросить по умолчанию</button></div></div>`;
+}
+
+async function saveNotifTime(key, val) {
+  if(!userProfile.notifTimes) userProfile.notifTimes = {};
+  userProfile.notifTimes[key] = val;
+  await saveProfile(userProfile);
+}
+
+async function toggleNotif(key, el) {
+  if(!userProfile.notifTimes) userProfile.notifTimes = {};
+  const cur = userProfile.notifTimes[key] !== false;
+  userProfile.notifTimes[key] = !cur;
+  el.classList.toggle('on', !cur);
+  await saveProfile(userProfile);
+}
+
+async function resetNotifTimes() {
+  if(!userProfile) return;
+  const nt = userProfile.notifTimes || {};
+  const meals = buildMealsFromProfile(userProfile);
+  meals.forEach(m => { delete nt['meal_'+m.id]; nt['meal_'+m.id+'_on'] = true; });
+  userProfile.notifTimes = nt;
+  await saveProfile(userProfile);
+  renderNotifications();
+}
+
+async function resetVitNotifTimes() {
+  if(!userProfile) return;
+  const nt = userProfile.notifTimes || {};
+  buildVitaminsFromProfile(userProfile).forEach(v => { delete nt['vit_'+v.id]; nt['vit_'+v.id+'_on'] = true; });
+  userProfile.notifTimes = nt;
+  await saveProfile(userProfile);
+  renderVitNotifications();
 }
 
 // ─── STATS ───
@@ -1429,6 +1690,7 @@ function renderProfileScreen() {
   const now=new Date();
   document.getElementById('profile-start').textContent = 'С нами с '+now.getDate()+' '+MONTHS[now.getMonth()]+' '+now.getFullYear();
   renderNotifications();
+  renderVitNotifications();
 }
 
 // ─── NAVIGATION ───

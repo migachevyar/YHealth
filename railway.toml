@@ -1,0 +1,6 @@
+[deploy]
+numReplicas = 1
+restartPolicyType = "ON_FAILURE"
+
+[[mounts]]
+mountPath = "/app/data"
