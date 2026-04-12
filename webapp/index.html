@@ -1,11 +1,13 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-<meta charset="UTF-8"/>
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
-<title>Дневник здоровья</title>
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@phosphor-icons/web@2.1.1/src/regular/style.css"/>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>YHealth</title>
+
 <style>
+<<<<<<< HEAD
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 :root{
@@ -227,12 +229,63 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Inter'
 .ob-goal.active .ob-goal-check{background:var(--green);border-color:var(--green)}
 .ob-goal-check i{font-size:11px;color:#fff;opacity:0;transform:scale(0);transition:all .2s cubic-bezier(.34,1.56,.64,1)}
 .ob-goal.active .ob-goal-check i{opacity:1;transform:scale(1)}
+=======
+:root {
+  --bg: #121212;
+  --text: #ffffff;
+  --text2: #aaaaaa;
+  --green: #4CAF50;
+}
+
+body {
+  margin: 0;
+  font-family: Arial, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+}
+
+.container {
+  padding: 16px;
+}
+
+.card {
+  background: #1e1e1e;
+  padding: 16px;
+  border-radius: 12px;
+  margin-bottom: 12px;
+}
+
+.small {
+  color: var(--text2);
+}
+
+.progress {
+  height: 8px;
+  background: #333;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.progress div {
+  height: 100%;
+  background: var(--green);
+  width: 0%;
+}
+
+button {
+  background: var(--green);
+  color: white;
+  border: none;
+  padding: 10px;
+  border-radius: 8px;
+}
+>>>>>>> 1e0f66bfda939950a589cdc889e77f6c33db6044
 </style>
 </head>
-<body>
-<div class="app">
-  <div class="screens">
 
+<body>
+
+<<<<<<< HEAD
     <!-- TODAY -->
     <div class="screen" id="s-today">
       <div class="header">
@@ -351,16 +404,24 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Inter'
         </div>
       </div>
     </div>
+=======
+<div class="container">
+
+  <h2>Доброе утро</h2>
+
+  <div class="card">
+    <div>Питание</div>
+    <div class="small">0 из 0</div>
+>>>>>>> 1e0f66bfda939950a589cdc889e77f6c33db6044
   </div>
 
-  <div class="tabbar">
-    <div class="tab active" onclick="switchTab('today',this)"><i class="ph ph-list-checks"></i><span>Сегодня</span></div>
-    <div class="tab" onclick="switchTab('food',this)"><i class="ph ph-fork-knife"></i><span>Питание</span></div>
-    <div class="tab" onclick="switchTab('stats',this)"><i class="ph ph-chart-line-up"></i><span>Статистика</span></div>
-    <div class="tab" onclick="switchTab('profile',this)"><i class="ph ph-user-circle"></i><span>Профиль</span></div>
+  <div class="card">
+    <div>Вода</div>
+    <div class="small">0 л</div>
+    <div class="progress"><div id="waterBar"></div></div>
   </div>
-</div>
 
+<<<<<<< HEAD
 <!-- Feedback modal -->
 <div class="modal-overlay" id="modal-overlay">
   <div class="modal">
@@ -370,7 +431,13 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Inter'
       <button class="modal-cancel" onclick="closeFeedback()">Отмена</button>
       <button class="modal-send" onclick="sendFeedback()">Отправить</button>
     </div>
+=======
+  <div class="card">
+    <div>Витамины</div>
+    <div class="small">0 из 0</div>
+>>>>>>> 1e0f66bfda939950a589cdc889e77f6c33db6044
   </div>
+
 </div>
 
 <!-- ONBOARDING OVERLAY -->
@@ -477,20 +544,27 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Inter'
 </div>
 
 <script>
+<<<<<<< HEAD
 const tg = window.Telegram?.WebApp;
 const TG_USER = tg?.initDataUnsafe?.user || {};
 const INIT_DATA = tg?.initData || "";
 const API = "";
+=======
+>>>>>>> 1e0f66bfda939950a589cdc889e77f6c33db6044
 
-if (tg) {
-  tg.expand();
-  tg.ready();
-  tg.setHeaderColor('#0a0a0f');
-  tg.setBackgroundColor('#0a0a0f');
-  if (tg.requestFullscreen) tg.requestFullscreen();
-  if (tg.disableVerticalSwipes) tg.disableVerticalSwipes();
+// пример состояния
+let state = {
+  water: 0,
+  waterGoal: 2.5
+};
+
+// обновление воды
+function updateWater() {
+  const percent = (state.water / state.waterGoal) * 100;
+  document.getElementById('waterBar').style.width = percent + "%";
 }
 
+<<<<<<< HEAD
 // Safe area
 function updateSafeArea() {
   const top = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--tg-safe-area-inset-top') || '0') || 0;
@@ -1166,6 +1240,17 @@ async function init() {
 }
 
 init();
+=======
+// фикс: функция была оборвана
+function buildVitDesc(vit, profile) {
+  return vit.desc || '';
+}
+
+// запуск
+updateWater();
+
+>>>>>>> 1e0f66bfda939950a589cdc889e77f6c33db6044
 </script>
+
 </body>
 </html>
