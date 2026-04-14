@@ -81,15 +81,12 @@ MEAL_TIPS = {
 
 
 def get_user_schedule(user_id: int):
+    # Read directly from SQLite — no HTTP auth needed
     try:
-        port = int(os.environ.get("PORT", 8080))
-        url = f"http://localhost:{port}/api/schedule/{user_id}"
-        req = urllib.request.Request(url)
-        with urllib.request.urlopen(req, timeout=3) as r:
-            data = json.loads(r.read())
-            return data.get("schedule")
+        from server import db_get
+        return db_get(str(user_id), "schedule")
     except Exception as e:
-        logger.warning(f"Could not fetch schedule for {user_id}: {e}")
+        logger.warning(f"Could not read schedule for {user_id}: {e}")
         return None
 
 

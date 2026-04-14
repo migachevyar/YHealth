@@ -444,6 +444,10 @@ if(tg){
   tg.setBackgroundColor('#09090f');
   if(tg.requestFullscreen) tg.requestFullscreen();
   if(tg.disableVerticalSwipes) tg.disableVerticalSwipes();
+  // Re-render tabbar when fullscreen state changes
+  tg.onEvent('fullscreenChanged', ()=>{
+    document.querySelector('.tabbar').style.display='flex';
+  });
 }
 
 // ─── CLOUD STORAGE ───
@@ -515,23 +519,27 @@ async function saveDayState(){
   await CS.set('day_'+todayKey(), dayState);
   allDays[todayKey()] = dayState;
 }
+async function pushScheduleToServer() {
+  if(!INIT_DATA) return;
+  try {
+    const sched = getMealSchedule().filter(m=>m.enabled);
+    const vits = getActiveVits().map(v=>({
+      id: v.id, name: v.name, time: getVitTime(v.id, profile), timingLabel: v.timingLabel
+    }));
+    const meds = (profile.meds||[]).map(m=>({name:m.name, dose:m.dose, time:m.time}));
+    await fetch(window.location.origin + '/api/schedule', {
+      method:'POST',
+      headers:{'Content-Type':'application/json','X-Init-Data':INIT_DATA},
+      body: JSON.stringify({ schedule: { meals: sched, vitamins: vits, meds } })
+    });
+  } catch(e) {
+    console.warn('Schedule push failed:', e);
+  }
+}
+
 async function saveProfile(){
   await CS.set('profile', profile);
-  // Also push schedule to server so bot can read it for reminders
-  if(INIT_DATA) {
-    try {
-      const sched = getMealSchedule().filter(m=>m.enabled);
-      const vits = getActiveVits().map(v=>({
-        id: v.id, name: v.name, time: getVitTime(v.id, profile), timingLabel: v.timingLabel
-      }));
-      const meds = (profile.meds||[]).map(m=>({name:m.name, dose:m.dose, time:m.time}));
-      await fetch('/api/schedule', {
-        method:'POST',
-        headers:{'Content-Type':'application/json','X-Init-Data':INIT_DATA},
-        body: JSON.stringify({ schedule: { meals: sched, vitamins: vits, meds } })
-      });
-    } catch(e) {}
-  }
+  await pushScheduleToServer();
 }
 async function saveWeights(){ await CS.set('weights', weights); }
 
@@ -1122,17 +1130,29 @@ function renderMealScheduleList(){
     return `<div class="p-row">
       <div class="p-row-ico" style="background:${bgs[m.id]||'var(--green3)'}"><i class="ph ${icons[m.id]||'ph-clock'}" style="color:${colors[m.id]||'var(--green)'}"></i></div>
       <span class="p-row-label">${m.name}</span>
-      <input type="time" value="${m.time}" class="p-time-input" style="margin-right:8px" onchange="updateMealTime('${m.id}',this.value)"/>
+      <input type="time" value="${m.time}" class="p-time-input" style="margin-right:8px" onchange="debounceMealTime('${m.id}',this.value)"/>
       <div class="ntoggle ${on?'on':''}" onclick="toggleMealEnabled('${m.id}',this)"><div class="ntoggle-knob"></div></div>
     </div>`;
   }).join('')+`<div style="padding:8px 13px"><button class="reset-btn" onclick="resetSchedule()">↺ Сбросить по умолчанию</button></div>`;
+}
+
+let _mealTimeTimer = {};
+function debounceMealTime(id, val) {
+  clearTimeout(_mealTimeTimer[id]);
+  _mealTimeTimer[id] = setTimeout(() => updateMealTime(id, val), 800);
+}
+
+let _vitTimeTimer = {};
+function debounceVitTime(id, val) {
+  clearTimeout(_vitTimeTimer[id]);
+  _vitTimeTimer[id] = setTimeout(() => updateVitTime(id, val), 800);
 }
 
 async function updateMealTime(id, val){
   if(!profile.schedule) profile.schedule=buildDefaultSchedule(profile.breakfastTime||'08:00');
   const m=profile.schedule.find(x=>x.id===id);
   if(m){ m.time=val; if(id==='breakfast'){ profile.breakfastTime=val; cascadeMealTimes(val); } }
-  await saveProfile();
+  await saveProfile(); // saves + pushes schedule to server
   renderMeals();
   renderVits();
   renderMealScheduleList();
@@ -1157,6 +1177,9 @@ async function toggleMealEnabled(id, el){
   updateRings();
 }
 
+// Push schedule when vitamine enabled state changes
+
+
 async function resetSchedule(){
   if(!profile) return;
   profile.schedule=buildDefaultSchedule(profile.breakfastTime||'08:00');
@@ -1180,7 +1203,7 @@ function renderVitScheduleList(){
     return `<div class="p-row">
       <div class="p-row-ico" style="background:${v.bg}"><i class="ph ${v.icon}" style="color:${v.color}"></i></div>
       <span class="p-row-label">${v.name}</span>
-      <input type="time" value="${t}" class="p-time-input" style="margin-right:8px" onchange="updateVitTime('${v.id}',this.value)"/>
+      <input type="time" value="${t}" class="p-time-input" style="margin-right:8px" onchange="debounceVitTime('${v.id}',this.value)"/>
       <div class="ntoggle ${hidden?'':'on'}" onclick="toggleVitVisible('${v.id}',this)" title="Показывать в Сегодня"><div class="ntoggle-knob"></div></div>
     </div>`;
   }).join('');
@@ -1244,12 +1267,16 @@ async function resetVitTimes(){
 function renderMedsList(){
   const el=document.getElementById('meds-list'); if(!el) return;
   const meds=profile?.meds||[];
+  const MCOLS=['var(--red)','var(--orange)','var(--blue)','var(--green)','var(--purple)','var(--teal)'];
+  const MBGS=['var(--red3)','var(--orange3)','var(--blue3)','var(--green3)','var(--purple3)','var(--teal3)'];
   let h='';
   meds.forEach((med,i)=>{
+    const col=MCOLS[i%MCOLS.length], bg=MBGS[i%MBGS.length];
     h+=`<div class="p-row">
-      <div class="p-row-ico" style="background:var(--red3)"><i class="ph ph-pill" style="color:var(--red)"></i></div>
-      <div style="flex:1"><div class="p-row-label">${med.name}</div><div class="p-row-val">${med.dose} · ${med.time}</div></div>
-      <span onclick="deleteMed(${i})" style="color:var(--text3);cursor:pointer;font-size:18px;padding:4px"><i class="ph ph-trash"></i></span>
+      <div class="p-row-ico" style="background:${bg}"><i class="ph ph-pill" style="color:${col}"></i></div>
+      <div style="flex:1"><div class="p-row-label">${med.name}</div><div class="p-row-val" style="font-size:11px;color:var(--text3)">${med.dose}</div></div>
+      <input type="time" value="${med.time}" class="p-time-input" style="margin-right:8px" onchange="updateMedTime(${i},this.value)"/>
+      <span onclick="deleteMed(${i})" style="color:var(--text3);cursor:pointer;padding:4px"><i class="ph ph-trash" style="font-size:16px"></i></span>
     </div>`;
   });
   h+=`<div class="add-btn" onclick="openMedModal()"><i class="ph ph-plus-circle" style="font-size:20px"></i>Добавить лекарство</div>`;
@@ -1267,8 +1294,11 @@ async function saveMed(){
   if(!profile.meds) profile.meds=[];
   profile.meds.push({ name, dose, time });
   await saveProfile();
+  await pushScheduleToServer();
   closeMedModal();
   renderMedsList();
+  renderMedsToday();
+  updateRings();
 }
 
 async function deleteMed(i){
@@ -1276,6 +1306,15 @@ async function deleteMed(i){
   profile.meds.splice(i,1);
   await saveProfile();
   renderMedsList();
+  renderMedsToday();
+  updateRings();
+}
+
+async function updateMedTime(i, val){
+  if(!profile?.meds?.[i]) return;
+  profile.meds[i].time = val;
+  await saveProfile();
+  renderMedsToday();
 }
 
 // ─── DATE ───
@@ -1417,7 +1456,7 @@ async function finishOb(){
     vitamins:obData.vitamins,
     meds:[],
   };
-  await saveProfile();
+  await saveProfile(); // also pushes schedule to server
   hideOb();
   loadApp();
 }
