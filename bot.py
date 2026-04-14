@@ -2,6 +2,7 @@ import os
 import json
 import logging
 import random
+import urllib.request
 from datetime import time as dtime
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo
 from telegram.ext import Application, CommandHandler, MessageHandler, ContextTypes, filters
@@ -14,78 +15,148 @@ logger = logging.getLogger(__name__)
 TOKEN = os.environ.get("BOT_TOKEN", "")
 WEBAPP_URL = os.environ.get("WEBAPP_URL", "")
 FEEDBACK_CHAT_ID = os.environ.get("FEEDBACK_CHAT_ID", "")
+TZ_OFFSET = int(os.environ.get("TZ_OFFSET", "3"))
 
 with open("webapp/config.json", encoding="utf-8") as f:
     CONFIG = json.load(f)
 
-# ─── REMINDER TEXTS ───
-# Multiple variants per time slot — bot picks random each day
 REMINDER_TEXTS = {
     "07:30": [
         "💧 Доброе утро! Стакан воды прямо сейчас — запускает метаболизм и смывает сонливость",
         "💧 Просыпаемся! Вода натощак — самый простой способ ускорить обмен веществ на весь день",
         "💧 Утро начинается с воды. За ночь ты потерял 0.5–1 л — верни организму своё",
-        "💧 Вода, вода, вода! Пока ты не выпил стакан — день официально не начался 😄",
-        "💧 Стакан воды = 5 минут до завтрака. Желудок говорит спасибо. Поджелудочная тоже",
+        "💧 Стакан воды до завтрака = 5 минут заботы о себе. Желудок говорит спасибо 🙏",
     ],
     "08:00": [
-        "🍳 Завтрак! Белок утром снижает тягу к сладкому на весь день. Яйца, творог, куриная грудка — выбирай",
+        "🍳 Завтрак! Белок утром снижает тягу к сладкому на весь день. Яйца, творог — выбирай",
         "🍳 Завтрак пропускать — худшая идея. Голодный мозг работает на 20% хуже. Поешь!",
-        "🍳 Время завтракать! Исследования показывают: люди завтракающие стройнее тех кто не завтракает",
-        "🍳 Завтрак — первый кирпичик сегодняшнего прогресса. Не пропусти его 💪",
-        "🍳 Доброе утро! Завтрак через 30–60 мин после подъёма — оптимально для метаболизма",
+        "🍳 Время завтракать! Исследования: люди завтракающие стройнее тех кто не завтракает",
+        "🍳 Завтрак — первый кирпичик сегодняшнего прогресса. Не пропусти 💪",
     ],
     "10:30": [
         "🥜 Перекус! Небольшой приём пищи сейчас = меньше риска переесть на обеде. Творог или орехи",
-        "🥜 Небольшой перекус поддержит уровень сахара в крови до обеда. Без скачков энергии!",
-        "🥜 10:30 — идеальное время для перекуса. Не жди пока проголодаешься до боли в животе 😅",
-        "🥜 Перекус — это не слабость, это стратегия. Кто кушает вовремя — не срывается вечером",
+        "🥜 Небольшой перекус поддержит уровень сахара до обеда. Без скачков энергии!",
+        "🥜 10:30 — идеальное время. Не жди пока проголодаешься до боли в животе 😅",
         "🥜 Орехи + фрукт или творог. 5 минут — и следующие 2.5 часа без мыслей о еде",
     ],
     "13:00": [
-        "🥗 Обед! Самый важный приём пищи. Белок + углеводы + овощи. Ешь медленно — мозгу нужно 20 мин чтобы зафиксировать сытость",
-        "🥗 Время обеда! Лайфхак: начни с белка и овощей, углеводы в конце — меньше скачок сахара",
-        "🥗 Обед — это не перерыв от работы, это инвестиция в энергию на вторую половину дня 💡",
-        "🥗 Не ешь за компьютером! Мозг не считает еду при параллельной активности — переедание гарантировано",
-        "🥗 Обед! Курица + гречка или рыба + рис. Простая формула здорового питания работает",
+        "🥗 Обед! Белок + углеводы + овощи. Ешь медленно — мозгу нужно 20 мин зафиксировать сытость",
+        "🥗 Время обеда! Начни с белка и овощей, углеводы в конце — меньше скачок сахара",
+        "🥗 Обед — инвестиция в энергию на вторую половину дня 💡",
+        "🥗 Не ешь за компьютером! Мозг не считает еду при параллельной активности",
     ],
     "16:30": [
-        "🍎 Перекус 2! До ужина ещё 2.5 часа — без перекуса придёшь к столу голодным и съешь лишнего",
+        "🍎 Перекус 2! До ужина ещё 2.5 часа — без перекуса придёшь голодным и съешь лишнего",
         "🍎 Кефир, яблоко, пара хлебцев с яйцом — выбирай. Главное не печеньки 🙅",
-        "🍎 Второй перекус поддержит метаболизм и настроение до ужина. Не игнорируй!",
-        "🍎 16:30 — самое коварное время. Именно сейчас тянет на сладкое. Упреди это белковым перекусом",
-        "🍎 Небольшой перекус сейчас = спокойный ужин без переедания. Работает 100%",
+        "🍎 Второй перекус поддержит метаболизм и настроение до ужина",
+        "🍎 16:30 — самое коварное время. Именно сейчас тянет на сладкое. Упреди белковым перекусом",
     ],
     "19:00": [
-        "🐟 Ужин! Последний приём пищи дня. Белок + овощи, без тяжёлых углеводов. До сна минимум 3 часа",
-        "🐟 Время ужинать! Рыба, курица или творог + овощи. Лёгкий ужин = лёгкий утренний подъём",
-        "🐟 Ужин — финальный аккорд сегодняшнего питания. Сделай его правильным! Белок, а не углеводы",
-        "🐟 После 19:30 — только вода и витамины. Желудок говорит спасибо, весы тоже 😄",
-        "🐟 Ужин без простых углеводов = минус жир ночью. Организм работает пока ты спишь",
+        "🐟 Ужин! Белок + овощи, без тяжёлых углеводов. До сна минимум 3 часа",
+        "🐟 Рыба, курица или творог + овощи. Лёгкий ужин = лёгкий утренний подъём",
+        "🐟 Ужин — финальный аккорд питания. Сделай его правильным! Белок, не углеводы",
+        "🐟 После 19:30 — только вода и витамины. Желудок говорит спасибо 😄",
     ],
     "22:00": [
-        "🌙 Магний перед сном! 1–2 таблетки цитрата. Глубокий сон — это когда мышцы растут и жир сжигается",
-        "🌙 Пора принять магний! Снижает кортизол, улучшает качество сна. Утром почувствуешь разницу",
-        "🌙 22:00 — время магния. Хороший сон важнее самой лучшей тренировки. Не игнорируй восстановление",
-        "🌙 Магний + хороший сон = прогресс. Восстановление происходит ночью, не в зале 💪",
-        "🌙 Перед сном: магний выпит, телефон отложен, завтра будет продуктивным. Приятных снов! 🌟",
+        "🌙 Магний перед сном! 1–2 таблетки цитрата. Глубокий сон — когда мышцы растут",
+        "🌙 Пора принять магний! Снижает кортизол, улучшает качество сна",
+        "🌙 22:00 — время магния. Хороший сон важнее самой лучшей тренировки",
+        "🌙 Магний + хороший сон = прогресс. Восстановление ночью, не в зале 💪",
     ],
 }
 
-# Fallback texts for any other time
-GENERIC_TEXTS = [
-    "⏰ Время следить за здоровьем! Открой YHealth и отметь прогресс",
-    "💪 Маленькие шаги каждый день — большой результат через год",
-    "✅ Проверь свой прогресс на сегодня в YHealth!",
-]
+MEAL_EMOJIS = {
+    "water": "💧", "breakfast": "🍳", "snack1": "🥜", "snack2": "🍎",
+    "lunch": "🥗", "dinner": "🐟",
+}
+
+MEAL_TIPS = {
+    "water": ["Стакан воды — запускает метаболизм и пробуждает организм", "Вода натощак — первый шаг к здоровому дню"],
+    "breakfast": ["Белковый завтрак задаёт тон всему дню!", "Не пропускай — голодный мозг работает на 20% хуже"],
+    "snack1": ["Небольшой перекус = меньше риска переесть на обеде", "Творог, орехи или яйцо — идеально"],
+    "lunch": ["Белок + углеводы + овощи. Ешь медленно!", "Самый важный приём пищи дня"],
+    "snack2": ["До ужина ещё далеко — поддержи уровень энергии", "Кефир, яблоко или хлебцы"],
+    "dinner": ["Белок + овощи, без тяжёлых углеводов", "Лёгкий ужин = лёгкий подъём завтра"],
+}
 
 
-def get_reminder_text(reminder_time: str, reminder_base_text: str) -> str:
-    """Get a random text for the given time, falling back to config text."""
-    texts = REMINDER_TEXTS.get(reminder_time)
-    if texts:
-        return random.choice(texts)
-    return reminder_base_text
+def get_user_schedule(user_id: int):
+    try:
+        port = int(os.environ.get("PORT", 8080))
+        url = f"http://localhost:{port}/api/schedule/{user_id}"
+        req = urllib.request.Request(url)
+        with urllib.request.urlopen(req, timeout=3) as r:
+            data = json.loads(r.read())
+            return data.get("schedule")
+    except Exception as e:
+        logger.warning(f"Could not fetch schedule for {user_id}: {e}")
+        return None
+
+
+def build_reminders_from_schedule(schedule):
+    if not schedule:
+        return CONFIG.get("reminders", [])
+
+    events = {}
+
+    for meal in schedule.get("meals", []):
+        t = meal.get("time", "")
+        if not t:
+            continue
+        events.setdefault(t, []).append(("meal", meal.get("name",""), meal))
+
+    for vit in schedule.get("vitamins", []):
+        t = vit.get("time", "")
+        if not t:
+            continue
+        events.setdefault(t, []).append(("vit", vit.get("name",""), vit))
+
+    for med in schedule.get("meds", []):
+        t = med.get("time", "")
+        if not t:
+            continue
+        events.setdefault(t, []).append(("med", med.get("name",""), med))
+
+    reminders = []
+    for t, items in sorted(events.items()):
+        meals = [i for i in items if i[0] == "meal"]
+        vits = [i for i in items if i[0] == "vit"]
+        meds = [i for i in items if i[0] == "med"]
+        text = build_grouped_text(t, meals, vits, meds)
+        reminders.append({"time": t, "text": text})
+
+    return reminders
+
+
+def build_grouped_text(t, meals, vits, meds):
+    lines = []
+
+    for _, name, item in meals:
+        mid = item.get("id", "")
+        emoji = MEAL_EMOJIS.get(mid, "🍽")
+        tips = MEAL_TIPS.get(mid, [f"Время: {name}"])
+        tip = random.choice(tips)
+        lines.append(f"{emoji} {name}: {tip}")
+
+    if len(vits) == 1:
+        lines.append(f"💊 {vits[0][1]} — не забудь принять!")
+    elif len(vits) > 1:
+        vnames = ", ".join(v[1] for v in vits)
+        lines.append(f"💊 Витамины: {vnames}")
+
+    if len(meds) == 1:
+        dose = meds[0][2].get("dose", "")
+        lines.append(f"💉 {meds[0][1]}{' — ' + dose if dose else ''}")
+    elif len(meds) > 1:
+        lines.append(f"💉 Лекарства: {', '.join(m[1] for m in meds)}")
+
+    if not lines:
+        txt = REMINDER_TEXTS.get(t, [])
+        if txt:
+            return random.choice(txt)
+        return f"⏰ {t} — пора следить за здоровьем!"
+
+    return "\n".join(lines)
 
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -97,7 +168,6 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def handle_webapp_data(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handle data sent from Mini App (feedback, etc.)"""
     if not update.message or not update.message.web_app_data:
         return
     try:
@@ -121,10 +191,9 @@ async def handle_feedback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     if FEEDBACK_CHAT_ID:
         user = update.effective_user
-        name = user.first_name or 'Пользователь'
         await context.bot.send_message(
             chat_id=FEEDBACK_CHAT_ID,
-            text=f"💬 Сообщение от {name}:\n\n{text}"
+            text=f"💬 Сообщение от {user.first_name}:\n\n{text}"
         )
     await update.message.reply_text("Получено, спасибо!")
 
@@ -132,86 +201,73 @@ async def handle_feedback(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def send_reminder(context: ContextTypes.DEFAULT_TYPE):
     job = context.job
     chat_id = job.data["chat_id"]
-    reminder_time = job.data["time"]
-    base_text = job.data["text"]
-    text = get_reminder_text(reminder_time, base_text)
+    text = job.data["text"]
     kb = [[InlineKeyboardButton("Открыть трекер", web_app=WebAppInfo(url=WEBAPP_URL))]]
     try:
-        await context.bot.send_message(
-            chat_id=chat_id,
-            text=text,
-            reply_markup=InlineKeyboardMarkup(kb)
-        )
+        await context.bot.send_message(chat_id=chat_id, text=text, reply_markup=InlineKeyboardMarkup(kb))
     except Exception as e:
         logger.error(f"Reminder error: {e}")
 
 
 async def setup_reminders(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
+    user_id = update.effective_user.id
     jq = context.job_queue
-    # Remove old reminders for this user
+
     for job in jq.jobs():
         if job.data and job.data.get("chat_id") == chat_id:
             job.schedule_removal()
 
-    # TZ_OFFSET: hours ahead of UTC (e.g. Moscow = 3, Novosibirsk = 7)
-    tz_offset = int(os.environ.get("TZ_OFFSET", "3"))
+    user_schedule = get_user_schedule(user_id)
+    reminders = build_reminders_from_schedule(user_schedule)
 
-    reminders = CONFIG.get("reminders", [])
     scheduled = []
     for r in reminders:
         h, m = map(int, r["time"].split(":"))
-        # Convert local time to UTC
-        utc_total = (h * 60 + m) - tz_offset * 60
-        utc_total = utc_total % (24 * 60)  # wrap around midnight
-        utc_h = utc_total // 60
-        utc_m = utc_total % 60
+        utc_total = (h * 60 + m) - TZ_OFFSET * 60
+        utc_total = utc_total % (24 * 60)
         jq.run_daily(
             send_reminder,
-            time=dtime(utc_h, utc_m, 0),
+            time=dtime(utc_total // 60, utc_total % 60, 0),
             data={"chat_id": chat_id, "time": r["time"], "text": r["text"]},
             name=f"rem_{chat_id}_{r['time']}"
         )
         scheduled.append(r["time"])
 
     tz_name = {0:"UTC", 1:"UTC+1", 2:"UTC+2", 3:"Москва (UTC+3)",
-               4:"Самара (UTC+4)", 5:"Екатеринбург (UTC+5)",
-               6:"Омск (UTC+6)", 7:"Красноярск (UTC+7)",
-               8:"Иркутск (UTC+8)", 9:"Якутск (UTC+9)",
-               10:"Владивосток (UTC+10)"}.get(tz_offset, f"UTC+{tz_offset}")
+               4:"Самара", 5:"Екатеринбург", 7:"Красноярск",
+               8:"Иркутск", 10:"Владивосток"}.get(TZ_OFFSET, f"UTC+{TZ_OFFSET}")
 
+    source = "твоё личное расписание ✓" if user_schedule else "расписание по умолчанию"
     await update.message.reply_text(
-        f"✅ Напоминания включены — {len(reminders)} уведомлений в день\n"
-        f"🕐 Часовой пояс: {tz_name}\n\n"
-        f"Расписание: " + " • ".join(scheduled) + "\n\n"
+        f"✅ Напоминания включены — {len(reminders)} уведомлений\n"
+        f"🕐 Часовой пояс: {tz_name}\n"
+        f"📋 {source}\n\n"
+        f"Расписание: {' • '.join(scheduled)}\n\n"
         f"Чтобы отключить — /stop"
     )
 
 
 async def stop_reminders(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
-    removed = 0
-    for job in context.job_queue.jobs():
-        if job.data and job.data.get("chat_id") == chat_id:
-            job.schedule_removal()
-            removed += 1
+    removed = sum(1 for job in context.job_queue.jobs()
+                  if job.data and job.data.get("chat_id") == chat_id
+                  and not job.schedule_removal())
     await update.message.reply_text(
-        f"🔕 Напоминания отключены ({removed} шт).\n"
-        f"Чтобы включить снова — напиши /remind"
+        f"🔕 Напоминания отключены.\nЧтобы включить снова — /remind"
     )
 
 
 async def help_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     kb = [[InlineKeyboardButton("Открыть трекер", web_app=WebAppInfo(url=WEBAPP_URL))]]
     await update.message.reply_text(
-        "🏥 *YHealth — дневник здоровья*\n\n"
-        "📱 /start — открыть трекер\n"
-        "🔔 /remind — включить ежедневные напоминания\n"
-        "🔕 /stop — отключить напоминания\n"
-        "❓ /help — эта справка\n\n"
-        "Напоминания приходят по расписанию:\n"
-        "7:30 • 8:00 • 10:30 • 13:00 • 16:30 • 19:00 • 22:00",
-        parse_mode='Markdown',
+        "🏥 YHealth — дневник здоровья\n\n"
+        "/start — открыть трекер\n"
+        "/remind — включить напоминания\n"
+        "/stop — отключить напоминания\n"
+        "/help — справка\n\n"
+        "Напоминания берутся из твоего расписания в приложении.\n"
+        "Если менял расписание — отправь /remind заново.",
         reply_markup=InlineKeyboardMarkup(kb)
     )
 
@@ -223,8 +279,6 @@ def main():
         raise ValueError("WEBAPP_URL не задан")
 
     start_server()
-    logger.info("Server started")
-
     app = Application.builder().token(TOKEN).build()
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("remind", setup_reminders))

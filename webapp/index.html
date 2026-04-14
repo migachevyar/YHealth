@@ -490,10 +490,17 @@ async function loadAll(){
   profile = await CS.get('profile');
   const key = todayKey();
   dayState = (await CS.get('day_'+key)) || { meals:{}, vitamins:{}, water:0 };
-  weights = (await CS.get('weights')) || {};
-  // If profile has initial weight but weights history is empty, seed it
-  if(Object.keys(weights).length===0 && profile?.weight){
-    weights[todayKey()] = profile.weight;
+  const rawWeights = (await CS.get('weights')) || [];
+  // Migrate old format {date: value} to array if needed
+  if(!Array.isArray(rawWeights)) {
+    weights = Object.entries(rawWeights).map(([date,value])=>({date,value:parseFloat(value)})).sort((a,b)=>b.date.localeCompare(a.date));
+    await saveWeights();
+  } else {
+    weights = rawWeights;
+  }
+  // Seed from profile if empty
+  if(weights.length===0 && profile?.weight){
+    weights = [{date: todayKey(), value: parseFloat(profile.weight), ts: Date.now()}];
     await saveWeights();
   }
   // Load last 7 days for stats
@@ -508,7 +515,24 @@ async function saveDayState(){
   await CS.set('day_'+todayKey(), dayState);
   allDays[todayKey()] = dayState;
 }
-async function saveProfile(){ await CS.set('profile', profile); }
+async function saveProfile(){
+  await CS.set('profile', profile);
+  // Also push schedule to server so bot can read it for reminders
+  if(INIT_DATA) {
+    try {
+      const sched = getMealSchedule().filter(m=>m.enabled);
+      const vits = getActiveVits().map(v=>({
+        id: v.id, name: v.name, time: getVitTime(v.id, profile), timingLabel: v.timingLabel
+      }));
+      const meds = (profile.meds||[]).map(m=>({name:m.name, dose:m.dose, time:m.time}));
+      await fetch('/api/schedule', {
+        method:'POST',
+        headers:{'Content-Type':'application/json','X-Init-Data':INIT_DATA},
+        body: JSON.stringify({ schedule: { meals: sched, vitamins: vits, meds } })
+      });
+    } catch(e) {}
+  }
+}
 async function saveWeights(){ await CS.set('weights', weights); }
 
 // ─── MEAL SCHEDULE HELPERS ───
@@ -951,10 +975,14 @@ function toggleFood(id){ document.getElementById('fd-'+id)?.classList.toggle('op
 function renderStats(){
   const now=new Date();
   document.getElementById('stats-month').textContent=MONTHS_F[now.getMonth()]+' '+now.getFullYear();
-  const we=Object.entries(weights).sort((a,b)=>b[0].localeCompare(a[0]));
+  // weights is now array of {date, value, ts}
+  const we = Array.isArray(weights) ? weights : [];
   if(we.length){
-    document.getElementById('st-w').textContent=we[0][1]+' кг';
+    document.getElementById('st-w').textContent=we[0].value+' кг';
     document.getElementById('st-w-s').textContent='последний замер';
+  } else {
+    document.getElementById('st-w').textContent='—';
+    document.getElementById('st-w-s').textContent='не записан';
   }
   renderWeightChart(we);
   renderWeightHistory(we);
@@ -987,7 +1015,7 @@ function renderStats(){
   }
   renderBars('bc-w',wdata,'#0a84ff',dayLbls);
   renderBars('bc-f',fdata,'#2fd158',dayLbls);
-  const tw=weights[todayKey()]; const wi=document.getElementById('w-inp'); if(wi&&tw) wi.value=tw;
+  // Don't pre-fill weight input — user should enter fresh measurement
 }
 
 function renderBars(id,data,color,lbls){
@@ -998,10 +1026,11 @@ function renderBars(id,data,color,lbls){
 
 function renderWeightChart(we){
   const el = document.getElementById('w-chart'); if(!el) return;
-  const entries = we.slice(0, 14).reverse(); // last 14, oldest first
+  // we is array of {date, value, ts} newest first — reverse for chart (oldest first)
+  const entries = we.slice(0, 14).reverse();
   if(entries.length < 2){ el.innerHTML='<div style="font-size:12px;color:var(--text3)">Добавь хотя бы 2 записи для графика</div>'; return; }
-  const vals = entries.map(([,v])=>parseFloat(v));
-  const dates = entries.map(([k])=>{ const d=new Date(k); return d.getDate()+' '+MONTHS[d.getMonth()].slice(0,3); });
+  const vals = entries.map(e=>parseFloat(e.value));
+  const dates = entries.map(e=>{ const d=new Date(e.date); return d.getDate()+' '+MONTHS[d.getMonth()].slice(0,3); });
   const min = Math.floor(Math.min(...vals)-1), max = Math.ceil(Math.max(...vals)+1);
   const range = max-min||1;
   const W=300, H=80, pad=8;
@@ -1030,20 +1059,26 @@ function renderWeightChart(we){
 
 function renderWeightHistory(we){
   const el = document.getElementById('w-hist'); if(!el) return;
-  if(!we.length){ el.innerHTML='<div style="font-size:12px;color:var(--text3)">Записей пока нет</div>'; return; }
+  if(!we.length){ el.innerHTML='<div style="font-size:12px;color:var(--text3)">Записей пока нет. Добавь первый замер выше.</div>'; return; }
   el.innerHTML = '<div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:7px">История</div>'+
-    we.slice(0,10).map(([k,v])=>{
-      const d=new Date(k);
-      return `<div style="display:flex;align-items:center;gap:9px;padding:7px 0;border-bottom:.5px solid var(--border)">
+    we.slice(0,20).map((entry,i)=>{
+      const d=new Date(entry.date);
+      const prev = we[i+1];
+      const diff = prev ? (entry.value - prev.value).toFixed(1) : null;
+      const diffColor = diff===null?'':diff<0?'var(--green)':diff>0?'var(--red)':'var(--text3)';
+      const diffStr = diff===null?'':(diff>0?'+':'')+diff+' кг';
+      return `<div style="display:flex;align-items:center;gap:9px;padding:8px 0;border-bottom:.5px solid var(--border)">
         <span style="font-size:13px;color:var(--text2);flex:1">${d.getDate()} ${MONTHS[d.getMonth()]} ${d.getFullYear()}</span>
-        <span style="font-size:15px;font-weight:700;color:var(--text)">${v} кг</span>
-        <span onclick="deleteWeight('${k}')" style="color:var(--text3);cursor:pointer;padding:2px 4px"><i class="ph ph-x" style="font-size:14px"></i></span>
+        ${diffStr?`<span style="font-size:11px;font-weight:600;color:${diffColor}">${diffStr}</span>`:''}
+        <span style="font-size:15px;font-weight:700;color:var(--text)">${entry.value} кг</span>
+        <span onclick="deleteWeight(${i})" style="color:var(--text3);cursor:pointer;padding:2px 6px"><i class="ph ph-x" style="font-size:14px"></i></span>
       </div>`;
     }).join('');
 }
 
-async function deleteWeight(key){
-  delete weights[key];
+async function deleteWeight(idx){
+  if(!Array.isArray(weights)) return;
+  weights.splice(idx,1);
   await saveWeights();
   renderStats();
 }
@@ -1051,10 +1086,15 @@ async function deleteWeight(key){
 async function saveWeight(){
   const val=parseFloat(document.getElementById('w-inp').value);
   if(!val||val<30||val>300) return;
-  weights[todayKey()]=val;
+  // Add new entry to array (allow multiple per day with timestamp)
+  const entry = {date: todayKey(), value: val, ts: Date.now()};
+  if(!Array.isArray(weights)) weights=[];
+  weights.unshift(entry); // newest first
+  // Keep max 365 entries
+  if(weights.length>365) weights=weights.slice(0,365);
   await saveWeights();
-  // Also update profile weight for TDEE calculations
   if(profile){ profile.weight=val; await saveProfile(); }
+  document.getElementById('w-inp').value='';
   const s=document.getElementById('w-saved'); if(s){s.style.display='inline';setTimeout(()=>s.style.display='none',2000);}
   renderStats();
 }

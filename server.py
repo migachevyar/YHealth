@@ -80,6 +80,11 @@ class Handler(BaseHTTPRequestHandler):
                     "weights": db_get(uid,"weights") or {},
                     "profile": db_get(uid,"profile"),
                 })
+            if path.startswith("/api/schedule/"):
+                # Bot reads schedule by user_id: GET /api/schedule/123456
+                target_uid = path.split("/")[-1]
+                sched = db_get(target_uid,"schedule")
+                return self._json({"schedule": sched})
             return self._json({"error":"not found"},404)
         base = os.path.join(os.path.dirname(os.path.abspath(__file__)),"webapp")
         fp = os.path.join(base, path.lstrip("/")) if path not in ("/","") else os.path.join(base,"index.html")
@@ -112,6 +117,15 @@ class Handler(BaseHTTPRequestHandler):
             profile = payload.get("profile")
             if profile is not None: db_set(uid,"profile",profile)
             return self._json({"ok":True})
+        if path == "/api/schedule":
+            # Store user's reminder schedule for bot
+            schedule = payload.get("schedule")
+            if schedule is not None: db_set(uid,"schedule",schedule)
+            return self._json({"ok":True})
+        if path == "/api/getschedule":
+            # Bot reads this to set up reminders
+            sched = db_get(uid,"schedule")
+            return self._json({"schedule": sched})
         return self._json({"error":"not found"},404)
 
 def run():
