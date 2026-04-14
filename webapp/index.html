@@ -260,6 +260,10 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Inter'
         <div id="meals-list"></div>
         <div class="sec">Витамины</div>
         <div id="vits-list"></div>
+        <div id="meds-today-section" style="display:none">
+          <div class="sec">Лекарства</div>
+          <div id="meds-today-list"></div>
+        </div>
       </div>
     </div>
 
@@ -283,10 +287,11 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Inter'
         <div class="chart-card"><div class="chart-ttl"><i class="ph ph-drop" style="color:var(--blue)"></i>Вода по дням, л</div><div class="bars" id="bc-w"></div></div>
         <div class="chart-card"><div class="chart-ttl"><i class="ph ph-fork-knife" style="color:var(--green)"></i>Питание по дням</div><div class="bars" id="bc-f"></div></div>
         <div class="weight-card">
-          <div class="sec" style="margin-top:0">Вес</div>
-          <div style="font-size:12px;color:var(--text3)">Записывай утром натощак</div>
-          <div class="w-row"><label>кг</label><input class="w-input" type="number" id="w-inp" placeholder="—" step="0.1" min="30" max="300"/><button class="w-btn" onclick="saveWeight()">Сохранить</button><span class="w-saved" id="w-saved">✓</span></div>
-          <div class="w-hist" id="w-hist"></div>
+          <div class="sec" style="margin-top:0">История веса</div>
+          <div style="font-size:12px;color:var(--text3);margin-bottom:10px">Записывай утром натощак для точной динамики</div>
+          <div id="w-chart" style="margin-bottom:12px"></div>
+          <div class="w-row"><label>кг</label><input class="w-input" type="number" id="w-inp" placeholder="—" step="0.1" min="30" max="300"/><button class="w-btn" onclick="saveWeight()">+ Добавить</button><span class="w-saved" id="w-saved">✓</span></div>
+          <div id="w-hist" style="margin-top:10px"></div>
         </div>
       </div>
     </div>
@@ -486,6 +491,11 @@ async function loadAll(){
   const key = todayKey();
   dayState = (await CS.get('day_'+key)) || { meals:{}, vitamins:{}, water:0 };
   weights = (await CS.get('weights')) || {};
+  // If profile has initial weight but weights history is empty, seed it
+  if(Object.keys(weights).length===0 && profile?.weight){
+    weights[todayKey()] = profile.weight;
+    await saveWeights();
+  }
   // Load last 7 days for stats
   for(let i=0;i<7;i++){
     const d = new Date(); d.setDate(d.getDate()-i);
@@ -600,11 +610,12 @@ function isVitRec(v, p){
 }
 
 function getVitTime(id, p){
+  // Check custom time first
+  if(p?.vitTimes?.[id]) return p.vitTimes[id];
   const sched = getMealSchedule();
   const bf = sched.find(m=>m.id==='breakfast')?.time || '08:00';
   const ln = sched.find(m=>m.id==='lunch')?.time || '13:00';
   const bt = timeMins(bf);
-  const lt = timeMins(ln);
   const times = {
     omega: bf, vitd: bf, vitc: bf, vitb12: bf, creatine: bf,
     magnesium: '22:00',
@@ -818,7 +829,8 @@ function toggleMealDetail(id){ document.getElementById('md-'+id)?.classList.togg
 // ─── VITAMINS ───
 function getActiveVits(){
   if(!profile?.vitamins?.length) return [];
-  return VITS_ALL.filter(v=>profile.vitamins.includes(v.id));
+  const hidden = profile?.vitHidden||[];
+  return VITS_ALL.filter(v=>profile.vitamins.includes(v.id) && !hidden.includes(v.id));
 }
 
 function renderVits(){
@@ -880,7 +892,15 @@ function renderFood(){
       <div style="background:rgba(0,0,0,.25);border-radius:10px;padding:10px;text-align:center"><div style="font-size:10px;color:var(--text3);margin-bottom:3px">ЖИРЫ</div><div style="font-size:22px;font-weight:800;color:var(--orange)">${fat}</div><div style="font-size:10px;color:var(--text3)">г/день</div></div>
       <div style="background:rgba(0,0,0,.25);border-radius:10px;padding:10px;text-align:center"><div style="font-size:10px;color:var(--text3);margin-bottom:3px">УГЛЕВОДЫ</div><div style="font-size:22px;font-weight:800;color:var(--purple)">${carb}</div><div style="font-size:10px;color:var(--text3)">г/день</div></div>
     </div>
-    <div style="font-size:12px;color:var(--text3);margin-top:10px">Норма белка ${prot}г ≈ ${Math.round(prot/26)} яиц или ${Math.round(prot/.31)}г куриной грудки или ${Math.round(prot/.18)}г творога 5%</div>
+    <div style="font-size:12px;color:var(--text3);margin-top:10px;background:rgba(10,132,255,0.07);border-radius:8px;padding:8px 10px">
+      <div style="font-weight:600;color:var(--blue);margin-bottom:4px">Как набрать ${prot}г белка:</div>
+      <div style="display:flex;flex-direction:column;gap:3px">
+        <span>→ ${Math.round(prot/13)} яиц (13г белка в 1 яйце)</span>
+        <span>→ ${Math.round(prot/.31)}г куриной грудки (31г/100г)</span>
+        <span>→ ${Math.round(prot/.18)}г творога 5% (18г/100г)</span>
+        <span>→ ${Math.round(prot/.24)}г индейки (24г/100г)</span>
+      </div>
+    </div>
   </div>`;
 
   const mealTypes=[
@@ -932,7 +952,12 @@ function renderStats(){
   const now=new Date();
   document.getElementById('stats-month').textContent=MONTHS_F[now.getMonth()]+' '+now.getFullYear();
   const we=Object.entries(weights).sort((a,b)=>b[0].localeCompare(a[0]));
-  if(we.length){ document.getElementById('st-w').textContent=we[0][1]+' кг'; document.getElementById('st-w-s').textContent='последний замер'; }
+  if(we.length){
+    document.getElementById('st-w').textContent=we[0][1]+' кг';
+    document.getElementById('st-w-s').textContent='последний замер';
+  }
+  renderWeightChart(we);
+  renderWeightHistory(we);
   const sched=getMealSchedule().filter(m=>m.enabled);
   const vits=getActiveVits();
   const dayLbls=[],wdata=[],fdata=[];
@@ -962,8 +987,6 @@ function renderStats(){
   }
   renderBars('bc-w',wdata,'#0a84ff',dayLbls);
   renderBars('bc-f',fdata,'#2fd158',dayLbls);
-  const hist=we.slice(0,5);
-  document.getElementById('w-hist').innerHTML=hist.length?hist.map(([k,v])=>{const d=new Date(k);return`<span style="margin-right:12px">${d.getDate()} ${MONTHS[d.getMonth()]} — ${v} кг</span>`;}).join(''):'<span style="color:var(--text3)">Записей пока нет</span>';
   const tw=weights[todayKey()]; const wi=document.getElementById('w-inp'); if(wi&&tw) wi.value=tw;
 }
 
@@ -973,11 +996,65 @@ function renderBars(id,data,color,lbls){
   el.innerHTML=data.map((v,i)=>`<div class="bar-col"><div class="bar" style="height:${Math.round(v/mx*58)}px;background:${color};opacity:${i===data.length-1?1:.4}"></div><div class="bar-d">${lbls[i]}</div></div>`).join('');
 }
 
+function renderWeightChart(we){
+  const el = document.getElementById('w-chart'); if(!el) return;
+  const entries = we.slice(0, 14).reverse(); // last 14, oldest first
+  if(entries.length < 2){ el.innerHTML='<div style="font-size:12px;color:var(--text3)">Добавь хотя бы 2 записи для графика</div>'; return; }
+  const vals = entries.map(([,v])=>parseFloat(v));
+  const dates = entries.map(([k])=>{ const d=new Date(k); return d.getDate()+' '+MONTHS[d.getMonth()].slice(0,3); });
+  const min = Math.floor(Math.min(...vals)-1), max = Math.ceil(Math.max(...vals)+1);
+  const range = max-min||1;
+  const W=300, H=80, pad=8;
+  const pts = vals.map((v,i)=>{
+    const x = pad + (i/(vals.length-1))*(W-2*pad);
+    const y = H-pad - ((v-min)/range)*(H-2*pad);
+    return `${x},${y}`;
+  }).join(' ');
+  const firstDate = dates[0], lastDate = dates[dates.length-1];
+  const firstVal = vals[0], lastVal = vals[vals.length-1];
+  const diff = (lastVal-firstVal).toFixed(1);
+  const diffColor = diff<0?'var(--green)':diff>0?'var(--red)':'var(--text3)';
+  el.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+    <div style="font-size:11px;color:var(--text3)">${firstDate} → ${lastDate}</div>
+    <div style="font-size:13px;font-weight:700;color:${diffColor}">${diff>0?'+':''}${diff} кг</div>
+  </div>
+  <svg width="100%" viewBox="0 0 ${W} ${H}" style="overflow:visible">
+    <polyline points="${pts}" fill="none" stroke="var(--blue)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    ${vals.map((v,i)=>{
+      const x=pad+(i/(vals.length-1))*(W-2*pad), y=H-pad-((v-min)/range)*(H-2*pad);
+      return `<circle cx="${x}" cy="${y}" r="3" fill="var(--blue)"/>`;
+    }).join('')}
+  </svg>
+  <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--text3);margin-top:3px"><span>${firstDate}</span><span>${lastDate}</span></div>`;
+}
+
+function renderWeightHistory(we){
+  const el = document.getElementById('w-hist'); if(!el) return;
+  if(!we.length){ el.innerHTML='<div style="font-size:12px;color:var(--text3)">Записей пока нет</div>'; return; }
+  el.innerHTML = '<div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:7px">История</div>'+
+    we.slice(0,10).map(([k,v])=>{
+      const d=new Date(k);
+      return `<div style="display:flex;align-items:center;gap:9px;padding:7px 0;border-bottom:.5px solid var(--border)">
+        <span style="font-size:13px;color:var(--text2);flex:1">${d.getDate()} ${MONTHS[d.getMonth()]} ${d.getFullYear()}</span>
+        <span style="font-size:15px;font-weight:700;color:var(--text)">${v} кг</span>
+        <span onclick="deleteWeight('${k}')" style="color:var(--text3);cursor:pointer;padding:2px 4px"><i class="ph ph-x" style="font-size:14px"></i></span>
+      </div>`;
+    }).join('');
+}
+
+async function deleteWeight(key){
+  delete weights[key];
+  await saveWeights();
+  renderStats();
+}
+
 async function saveWeight(){
   const val=parseFloat(document.getElementById('w-inp').value);
   if(!val||val<30||val>300) return;
   weights[todayKey()]=val;
   await saveWeights();
+  // Also update profile weight for TDEE calculations
+  if(profile){ profile.weight=val; await saveProfile(); }
   const s=document.getElementById('w-saved'); if(s){s.style.display='inline';setTimeout(()=>s.style.display='none',2000);}
   renderStats();
 }
@@ -1051,17 +1128,61 @@ async function resetSchedule(){
 
 function renderVitScheduleList(){
   const el=document.getElementById('vit-schedule-list'); if(!el) return;
-  const vits=getActiveVits();
-  if(!vits.length){ el.innerHTML='<div class="p-row"><span class="p-row-label" style="color:var(--text3)">Витамины не выбраны</span></div>'; return; }
-  el.innerHTML=vits.map(v=>{
-    const t=getVitTime(v.id,profile);
-    const customT=profile?.vitTimes?.[v.id]||t;
+  const allVits = VITS_ALL;
+  const selectedIds = profile?.vitamins||[];
+  const hiddenIds = profile?.vitHidden||[];
+
+  // Selected vitamins rows
+  let h = selectedIds.map(id=>{
+    const v = allVits.find(x=>x.id===id); if(!v) return '';
+    const t = getVitTime(v.id, profile);
+    const hidden = hiddenIds.includes(v.id);
     return `<div class="p-row">
       <div class="p-row-ico" style="background:${v.bg}"><i class="ph ${v.icon}" style="color:${v.color}"></i></div>
       <span class="p-row-label">${v.name}</span>
-      <input type="time" value="${customT}" class="p-time-input" onchange="updateVitTime('${v.id}',this.value)"/>
+      <input type="time" value="${t}" class="p-time-input" style="margin-right:8px" onchange="updateVitTime('${v.id}',this.value)"/>
+      <div class="ntoggle ${hidden?'':'on'}" onclick="toggleVitVisible('${v.id}',this)" title="Показывать в Сегодня"><div class="ntoggle-knob"></div></div>
     </div>`;
-  }).join('')+`<div style="padding:8px 13px"><button class="reset-btn" onclick="resetVitTimes()">↺ Сбросить по умолчанию</button></div>`;
+  }).join('');
+
+  // Unselected vitamins — collapsible
+  const unselected = allVits.filter(v=>!selectedIds.includes(v.id));
+  const addId = 'vit-add-expand';
+  h += `<div class="add-btn" onclick="toggleAddVitList()" style="border-top:.5px solid var(--border)"><i class="ph ph-plus-circle" style="font-size:19px"></i>Добавить витамин</div>`;
+  h += `<div id="${addId}" style="display:none">`;
+  h += unselected.map(v=>`<div class="p-row" style="cursor:pointer" onclick="addVitToProfile('${v.id}')">
+    <div class="p-row-ico" style="background:${v.bg}"><i class="ph ${v.icon}" style="color:${v.color}"></i></div>
+    <span class="p-row-label">${v.name}</span>
+    <i class="ph ph-plus" style="color:var(--green);font-size:18px"></i>
+  </div>`).join('');
+  h += '</div>';
+  h += `<div style="padding:8px 13px"><button class="reset-btn" onclick="resetVitTimes()">↺ Сбросить время по умолчанию</button></div>`;
+
+  el.innerHTML = h;
+}
+
+function toggleAddVitList(){
+  const el=document.getElementById('vit-add-expand');
+  if(el) el.style.display = el.style.display==='none'?'block':'none';
+}
+
+async function addVitToProfile(id){
+  if(!profile.vitamins) profile.vitamins=[];
+  if(!profile.vitamins.includes(id)) profile.vitamins.push(id);
+  await saveProfile();
+  renderVitScheduleList();
+  renderVits();
+  updateRings();
+}
+
+async function toggleVitVisible(id, el){
+  if(!profile.vitHidden) profile.vitHidden=[];
+  const idx = profile.vitHidden.indexOf(id);
+  if(idx>=0){ profile.vitHidden.splice(idx,1); el.classList.add('on'); }
+  else { profile.vitHidden.push(id); el.classList.remove('on'); }
+  await saveProfile();
+  renderVits();
+  updateRings();
 }
 
 async function updateVitTime(id,val){
@@ -1280,11 +1401,38 @@ function restartOnboarding(){
 }
 
 // ─── MAIN APP RENDER ───
+function renderMedsToday(){
+  const meds = profile?.meds||[];
+  const sec = document.getElementById('meds-today-section');
+  const el = document.getElementById('meds-today-list');
+  if(!el||!sec) return;
+  if(!meds.length){ sec.style.display='none'; return; }
+  sec.style.display='block';
+  el.innerHTML = meds.map((med,i)=>{
+    const done = !!(dayState.meds?.[i]);
+    return `<div class="meal-card ${done?'done':''}">
+      <div class="meal-hdr" onclick="">
+        <div class="meal-ico" style="background:var(--red3)"><i class="ph ph-pill" style="color:var(--red)"></i></div>
+        <div style="flex:1"><div class="meal-name">${med.name}</div><div class="meal-time-lbl">${med.time}${med.dose?' · '+med.dose:''}</div></div>
+        <div class="meal-check ${done?'on':''}" onclick="event.stopPropagation();toggleMed(${i})"><i class="ph ph-check"></i></div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+async function toggleMed(i){
+  if(!dayState.meds) dayState.meds={};
+  dayState.meds[i] = !dayState.meds[i];
+  await saveDayState();
+  renderMedsToday();
+}
+
 function loadApp(){
   renderDate();
   renderBottles();
   renderMeals();
   renderVits();
+  renderMedsToday();
   updateRings();
 }
 
