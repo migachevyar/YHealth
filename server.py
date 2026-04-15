@@ -85,7 +85,27 @@ class Handler(BaseHTTPRequestHandler):
                 target_uid = path.split("/")[-1]
                 sched = db_get(target_uid,"schedule")
                 return self._json({"schedule": sched})
-            return self._json({"error":"not found"},404)
+            if path == "/api/feedback":
+            text = payload.get("text","")
+            name = payload.get("name","")
+            fid = os.environ.get("FEEDBACK_CHAT_ID","")
+            if fid and text:
+                import threading
+                def send_fb():
+                    try:
+                        import urllib.request
+                        tok = os.environ.get("BOT_TOKEN","")
+                        msg = f"💬 Замечание от {name}:\n\n{text}"
+                        data = json.dumps({"chat_id":fid,"text":msg}).encode()
+                        req = urllib.request.Request(
+                            f"https://api.telegram.org/bot{tok}/sendMessage",
+                            data=data, headers={"Content-Type":"application/json"}
+                        )
+                        urllib.request.urlopen(req, timeout=5)
+                    except: pass
+                threading.Thread(target=send_fb, daemon=True).start()
+            return self._json({"ok":True})
+        return self._json({"error":"not found"},404)
         base = os.path.join(os.path.dirname(os.path.abspath(__file__)),"webapp")
         fp = os.path.join(base, path.lstrip("/")) if path not in ("/","") else os.path.join(base,"index.html")
         if os.path.isfile(fp): return self._file(fp)
@@ -94,11 +114,14 @@ class Handler(BaseHTTPRequestHandler):
     def do_POST(self):
         path = urlparse(self.path).path
         if not path.startswith("/api/"): self.send_response(404); self.end_headers(); return
-        uid = self._uid()
-        if not uid: return self._json({"error":"unauthorized"},401)
         length = int(self.headers.get("Content-Length",0))
         try: payload = json.loads(self.rfile.read(length) if length else b"{}")
         except: return self._json({"error":"invalid json"},400)
+        uid = self._uid()
+        # For /api/schedule allow uid from payload body (WebApp sends it)
+        if not uid and self.path.startswith("/api/schedule"):
+            uid = str(payload.get("uid",""))
+        if not uid: return self._json({"error":"unauthorized"},401)
         if path == "/api/day":
             date, data = payload.get("date"), payload.get("data")
             if date and data is not None:
