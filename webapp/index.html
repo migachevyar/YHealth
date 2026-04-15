@@ -530,7 +530,7 @@ async function pushScheduleToServer() {
     await fetch(window.location.origin + '/api/schedule', {
       method:'POST',
       headers:{'Content-Type':'application/json','X-Init-Data':INIT_DATA},
-      body: JSON.stringify({ schedule: { meals: sched, vitamins: vits, meds } })
+      body: JSON.stringify({ uid: TG_USER.id||0, schedule: { meals: sched, vitamins: vits, meds } })
     });
   } catch(e) {
     console.warn('Schedule push failed:', e);
@@ -583,7 +583,7 @@ function getMealSchedule(){
 // - Vitamin C + B12: take at different times (C can reduce B12 absorption at very high doses)
 // - Magnesium + Calcium: OK together in normal doses
 const VITS_ALL = [
-  { id:'omega', name:'Омега-3', icon:'ph-pill', color:'var(--orange)', bg:'var(--orange3)', rec:'all',
+  { id:'omega', name:'Омега-3', icon:'ph-drop-half', color:'var(--orange)', bg:'var(--orange3)', rec:'all',
     desc:'Принимай с едой — жирорастворимый. Если капсулы 1000 мг — 2 в день, 500 мг — 4 в день. Снижает воспаление, поддерживает сердце и суставы.',
     timing:'breakfast', timingLabel:'с завтраком', compat:[] },
   { id:'vitd', name:'Витамин D3+K2', icon:'ph-sun', color:'var(--blue)', bg:'var(--blue3)', rec:'all',
@@ -1267,16 +1267,19 @@ async function resetVitTimes(){
 function renderMedsList(){
   const el=document.getElementById('meds-list'); if(!el) return;
   const meds=profile?.meds||[];
+  const hiddenMeds=profile?.medsHidden||[];
   const MCOLS=['var(--red)','var(--orange)','var(--blue)','var(--green)','var(--purple)','var(--teal)'];
   const MBGS=['var(--red3)','var(--orange3)','var(--blue3)','var(--green3)','var(--purple3)','var(--teal3)'];
   let h='';
   meds.forEach((med,i)=>{
     const col=MCOLS[i%MCOLS.length], bg=MBGS[i%MBGS.length];
+    const hidden=hiddenMeds.includes(i);
     h+=`<div class="p-row">
       <div class="p-row-ico" style="background:${bg}"><i class="ph ph-pill" style="color:${col}"></i></div>
-      <div style="flex:1"><div class="p-row-label">${med.name}</div><div class="p-row-val" style="font-size:11px;color:var(--text3)">${med.dose}</div></div>
-      <input type="time" value="${med.time}" class="p-time-input" style="margin-right:8px" onchange="updateMedTime(${i},this.value)"/>
-      <span onclick="deleteMed(${i})" style="color:var(--text3);cursor:pointer;padding:4px"><i class="ph ph-trash" style="font-size:16px"></i></span>
+      <div style="flex:1"><div class="p-row-label">${med.name}</div><div style="font-size:11px;color:var(--text3)">${med.dose}</div></div>
+      <input type="time" value="${med.time}" class="p-time-input" style="margin-right:6px" onchange="updateMedTime(${i},this.value)"/>
+      <div class="ntoggle ${hidden?'':'on'}" style="margin-right:6px" onclick="toggleMedVisible(${i},this)"><div class="ntoggle-knob"></div></div>
+      <span onclick="deleteMed(${i})" style="color:var(--text3);cursor:pointer;padding:4px"><i class="ph ph-trash" style="font-size:15px"></i></span>
     </div>`;
   });
   h+=`<div class="add-btn" onclick="openMedModal()"><i class="ph ph-plus-circle" style="font-size:20px"></i>Добавить лекарство</div>`;
@@ -1317,6 +1320,15 @@ async function updateMedTime(i, val){
   renderMedsToday();
 }
 
+async function toggleMedVisible(i, el){
+  if(!profile.medsHidden) profile.medsHidden=[];
+  const idx=profile.medsHidden.indexOf(i);
+  if(idx>=0){profile.medsHidden.splice(idx,1);el.classList.add('on');}
+  else{profile.medsHidden.push(i);el.classList.remove('on');}
+  await saveProfile();
+  renderMedsToday();
+}
+
 // ─── DATE ───
 function renderDate(){
   const d=new Date(), h=d.getHours();
@@ -1341,8 +1353,15 @@ function openFeedback(){ document.getElementById('fb-ov').classList.add('open');
 function closeFeedback(){ document.getElementById('fb-ov').classList.remove('open'); document.getElementById('fb-text').value=''; }
 async function sendFeedback(){
   const t=document.getElementById('fb-text').value.trim(); if(!t) return;
-  if(tg) tg.sendData(JSON.stringify({type:'feedback',text:t}));
+  try {
+    await fetch(window.location.origin+'/api/feedback', {
+      method:'POST',
+      headers:{'Content-Type':'application/json','X-Init-Data':INIT_DATA},
+      body: JSON.stringify({uid:TG_USER.id||0, name:TG_USER.first_name||'', text:t})
+    });
+  } catch(e){}
   closeFeedback();
+  alert('Замечание отправлено, спасибо!');
 }
 
 // ─── ONBOARDING ───
@@ -1487,11 +1506,15 @@ function renderMedsToday(){
   if(!el||!sec) return;
   if(!meds.length){ sec.style.display='none'; return; }
   sec.style.display='block';
-  el.innerHTML = meds.map((med,i)=>{
+  const hiddenMeds=profile?.medsHidden||[];
+  const MCOLS2=['var(--red)','var(--orange)','var(--blue)','var(--green)','var(--purple)','var(--teal)'];
+  const MBGS2=['var(--red3)','var(--orange3)','var(--blue3)','var(--green3)','var(--purple3)','var(--teal3)'];
+  el.innerHTML = meds.filter((_,i)=>!hiddenMeds.includes(i)).map((med,i)=>{
     const done = !!(dayState.meds?.[i]);
+    const col=MCOLS2[i%MCOLS2.length], bg=MBGS2[i%MBGS2.length];
     return `<div class="meal-card ${done?'done':''}">
       <div class="meal-hdr" onclick="">
-        <div class="meal-ico" style="background:var(--red3)"><i class="ph ph-pill" style="color:var(--red)"></i></div>
+        <div class="meal-ico" style="background:${bg}"><i class="ph ph-pill" style="color:${col}"></i></div>
         <div style="flex:1"><div class="meal-name">${med.name}</div><div class="meal-time-lbl">${med.time}${med.dose?' · '+med.dose:''}</div></div>
         <div class="meal-check ${done?'on':''}" onclick="event.stopPropagation();toggleMed(${i})"><i class="ph ph-check"></i></div>
       </div>
