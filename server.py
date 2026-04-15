@@ -86,12 +86,12 @@ class Handler(BaseHTTPRequestHandler):
                 sched = db_get(target_uid,"schedule")
                 return self._json({"schedule": sched})
             if path == "/api/feedback":
-            text = payload.get("text","")
-            name = payload.get("name","")
-            fid = os.environ.get("FEEDBACK_CHAT_ID","")
-            if fid and text:
-                import threading
-                def send_fb():
+                text = payload.get("text","")
+                name = payload.get("name","")
+                fid = os.environ.get("FEEDBACK_CHAT_ID","")
+                if fid and text:
+                    import threading
+                    def send_fb():
                     try:
                         import urllib.request
                         tok = os.environ.get("BOT_TOKEN","")
