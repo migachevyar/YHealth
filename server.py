@@ -165,9 +165,9 @@ class Handler(BaseHTTPRequestHandler):
 
         if path == "/api/profile":
             profile = payload.get("profile")
+            logger.warning(f"🔥 SAVE PROFILE uid={uid} profile_keys={list(profile.keys()) if profile else None}")
             if profile is not None:
                 db_set(uid, "profile", profile)
-                logger.info(f"Profile saved for uid={uid}")
             return self._json({"ok": True})
 
         if path == "/api/feedback":

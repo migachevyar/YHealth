@@ -81,6 +81,8 @@ MEAL_TIPS = {
 
 
 def get_user_schedule(user_id: int):
+    profile = db_get(str(user_id), "profile")
+    logger.warning(f"🔥 LOAD PROFILE for user_id={user_id}")
     # Read profile from SQLite (profile is always saved there)
     try:
         from server import db_get
