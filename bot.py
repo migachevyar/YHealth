@@ -1,4 +1,3 @@
-from server import db_get
 import os
 import json
 import logging
@@ -82,30 +81,60 @@ MEAL_TIPS = {
 
 
 def get_user_schedule(user_id: int):
+    # Read profile from SQLite (profile is always saved there)
     try:
+        from server import db_get
         profile = db_get(str(user_id), "profile")
-        print(f"🔥 PROFILE FROM DB: {profile}")
+        if not profile:
+            logger.info(f"No profile in DB for {user_id}")
+            return None
+        # Build schedule from profile
+        sched = profile.get("schedule", [])
+        vit_ids = profile.get("vitamins", [])
+        vit_hidden = profile.get("vitHidden", [])
+        vit_times = profile.get("vitTimes", {})
+        meds = profile.get("meds", [])
+        meds_hidden = profile.get("medsHidden", [])
+        bf_time = profile.get("breakfastTime", "08:00")
+        
+        # Calculate vitamin times from meal schedule
+        bf_mins = int(bf_time.split(":")[0])*60 + int(bf_time.split(":")[1])
+        lunch_item = next((m for m in sched if m.get("id")=="lunch"), None)
+        ln_time = lunch_item.get("time","13:00") if lunch_item else "13:00"
+        ln_mins = int(ln_time.split(":")[0])*60 + int(ln_time.split(":")[1])
+        
+        def fmt(mins):
+            h,m = divmod(mins % 1440, 60)
+            return f"{h:02d}:{m:02d}"
+        
+        VIT_TIMES = {
+            "omega":bf_time,"vitd":bf_time,"vitc":bf_time,"vitb12":bf_time,"creatine":bf_time,
+            "magnesium":"22:00","zinc":ln_time,"calcium":ln_time,
+            "iron":fmt(bf_mins-30),"probiotics":fmt(bf_mins-30),
+        }
+        
+        VIT_NAMES = {
+            "omega":"Омега-3","vitd":"Витамин D3+K2","vitc":"Витамин C",
+            "vitb12":"Витамин B12","creatine":"Креатин","magnesium":"Магний B6",
+            "zinc":"Цинк","calcium":"Кальций","iron":"Железо","probiotics":"Пробиотики",
+        }
+        
+        meals_out = [m for m in sched if m.get("enabled", True)]
+        vits_out = [
+            {"id":vid,"name":VIT_NAMES.get(vid,vid),"time":vit_times.get(vid, VIT_TIMES.get(vid, bf_time))}
+            for vid in vit_ids if vid not in vit_hidden
+        ]
+        meds_out = [
+            {"name":meds[i]["name"],"dose":meds[i].get("dose",""),"time":meds[i]["time"]}
+            for i in range(len(meds)) if i not in meds_hidden
+        ]
+        
+        result = {"meals": meals_out, "vitamins": vits_out, "meds": meds_out}
+        logger.info(f"Schedule for {user_id}: {len(meals_out)} meals, {len(vits_out)} vits, {len(meds_out)} meds")
+        return result
     except Exception as e:
-        print(f"❌ ERROR loading profile: {e}")
-        profile = None
-
-    if not profile:
-        # дефолтное расписание
-        return ["07:30","08:00","10:30","13:00","16:30","19:00","22:00"]
-
-    # если есть профиль — берём оттуда
-    meals = profile.get("meals", [])
-
-    times = []
-    for m in meals:
-        t = m.get("time")
-        if t:
-            times.append(t)
-
-    if not times:
-        return ["07:30","08:00","10:30","13:00","16:30","19:00","22:00"]
-
-    return times
+        logger.warning(f"Could not build schedule for {user_id}: {e}")
+        return None
 
 
 def build_reminders_from_schedule(schedule):
