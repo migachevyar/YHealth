@@ -521,16 +521,17 @@ async function saveDayState(){
 }
 async function pushScheduleToServer() {
   if(!INIT_DATA) return;
+
   try {
-    const sched = getMealSchedule().filter(m=>m.enabled);
-    const vits = getActiveVits().map(v=>({
-      id: v.id, name: v.name, time: getVitTime(v.id, profile), timingLabel: v.timingLabel
-    }));
-    const meds = (profile.meds||[]).map(m=>({name:m.name, dose:m.dose, time:m.time}));
-    await fetch(window.location.origin + '/api/schedule', {
+    await fetch(window.location.origin + '/api/profile', {
       method:'POST',
-      headers:{'Content-Type':'application/json','X-Init-Data':INIT_DATA},
-      body: JSON.stringify({ uid: TG_USER.id||0, schedule: { meals: sched, vitamins: vits, meds } })
+      headers:{
+        'Content-Type':'application/json',
+        'X-Init-Data': INIT_DATA
+      },
+      body: JSON.stringify({
+        profile: profile
+      })
     });
   } catch(e) {
     console.warn('Schedule push failed:', e);
