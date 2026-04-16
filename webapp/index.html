@@ -527,11 +527,12 @@ async function pushScheduleToServer() {
       id: v.id, name: v.name, time: getVitTime(v.id, profile), timingLabel: v.timingLabel
     }));
     const meds = (profile.meds||[]).map(m=>({name:m.name, dose:m.dose, time:m.time}));
-    await fetch(window.location.origin + '/api/schedule', {
-      method:'POST',
-      headers:{'Content-Type':'application/json','X-Init-Data':INIT_DATA},
-      body: JSON.stringify({ uid: TG_USER.id||0, schedule: { meals: sched, vitamins: vits, meds } })
-    });
+    const headers = {'Content-Type':'application/json','X-Init-Data':INIT_DATA};
+    const body = JSON.stringify({ uid: TG_USER.id||0, schedule: { meals: sched, vitamins: vits, meds } });
+    await fetch(window.location.origin + '/api/schedule', { method:'POST', headers, body });
+    // Trigger bot to reschedule reminders immediately
+    await fetch(window.location.origin + '/api/remind', { method:'POST', headers,
+      body: JSON.stringify({ uid: TG_USER.id||0 }) });
   } catch(e) {
     console.warn('Schedule push failed:', e);
   }

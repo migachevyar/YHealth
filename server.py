@@ -9,6 +9,15 @@ import urllib.request
 
 logger = logging.getLogger(__name__)
 BOT_TOKEN = os.environ.get("BOT_TOKEN", "")
+
+# Set by bot.py after startup so /api/remind can trigger rescheduling
+_JOB_QUEUE = None
+_BOT_LOOP = None
+
+def register_bot(job_queue, loop):
+    global _JOB_QUEUE, _BOT_LOOP
+    _JOB_QUEUE = job_queue
+    _BOT_LOOP = loop
 DB_PATH = os.environ.get("DB_PATH", "/app/data/yhealth.db")
 
 os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
@@ -168,6 +177,27 @@ class Handler(BaseHTTPRequestHandler):
             if profile is not None:
                 db_set(uid, "profile", profile)
                 logger.info(f"Profile saved for uid={uid}")
+            return self._json({"ok": True})
+
+        if path == "/api/schedule":
+            schedule = payload.get("schedule")
+            if schedule is not None:
+                db_set(uid, "schedule", schedule)
+            return self._json({"ok": True})
+
+        if path == "/api/remind":
+            # Trigger reminder refresh for this user if bot job_queue is registered
+            jq = _JOB_QUEUE
+            if jq is not None:
+                from bot import reschedule_user
+                import asyncio
+                try:
+                    asyncio.run_coroutine_threadsafe(
+                        reschedule_user(int(uid), jq),
+                        _BOT_LOOP
+                    )
+                except Exception as e:
+                    logger.warning(f"Remind refresh failed: {e}")
             return self._json({"ok": True})
 
         if path == "/api/feedback":
