@@ -231,6 +231,14 @@ async def reschedule_user(user_id: int, jq):
     )
 
 
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    kb = [[InlineKeyboardButton("Открыть трекер", web_app=WebAppInfo(url=WEBAPP_URL))]]
+    await update.message.reply_text(
+        "Привет! Нажми кнопку чтобы открыть дневник здоровья.",
+        reply_markup=InlineKeyboardMarkup(kb)
+    )
+
+
 async def handle_webapp_data(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not update.message or not update.message.web_app_data:
         return
