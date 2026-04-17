@@ -438,7 +438,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Inter'
 const tg = window.Telegram?.WebApp;
 const TG_USER = tg?.initDataUnsafe?.user || {};
 const INIT_DATA = tg?.initData || '';
-const API = '__WEBAPP_URL__';  // injected by server
+const API = window.location.origin;
 if(tg){
   tg.expand(); tg.ready();
   tg.setHeaderColor('#09090f');
