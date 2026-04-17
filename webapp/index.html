@@ -522,7 +522,7 @@ async function saveDayState(){
   saveProfile();
 }
 async function pushScheduleToServer() {
-  if(!INIT_DATA) return;
+  if(!TG_USER.id) return;
   try {
     const sched = getMealSchedule().filter(m=>m.enabled);
     const vits = getActiveVits().map(v=>({
@@ -544,7 +544,7 @@ async function saveProfile() {
   console.log("Auto-saving profile...");
   try {
     // Сохраняем локально
-    await CS.setItem('profile', JSON.stringify(profile));
+    await CS.set('profile', profile);
     
     // Отправляем на сервер Railway
     await fetch(API + '/api/profile', {
