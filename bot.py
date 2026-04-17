@@ -318,22 +318,32 @@ async def help_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 
+async def web_app_data_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    # Этот код сработает, когда приложение пришлет сигнал об обновлении
+    try:
+        data = json.loads(update.effective_message.web_app_data.data)
+        if data.get("action") == "reload_reminders":
+            # Вызываем функцию перенастройки уведомлений
+            await setup_reminders(update, context)
+    except Exception as e:
+        logger.error(f"Ошибка при обработке данных Web App: {e}")
+
 def main():
-    if not TOKEN:
-        raise ValueError("BOT_TOKEN не задан")
-    if not WEBAPP_URL:
-        raise ValueError("WEBAPP_URL не задан")
+    if not TOKEN: raise ValueError("BOT_TOKEN не задан")
+    if not WEBAPP_URL: raise ValueError("WEBAPP_URL не задан")
 
     start_server()
     app = Application.builder().token(TOKEN).build()
+    
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("remind", setup_reminders))
     app.add_handler(CommandHandler("stop", stop_reminders))
     app.add_handler(CommandHandler("help", help_cmd))
-    app.add_handler(MessageHandler(filters.StatusUpdate.WEB_APP_DATA, handle_webapp_data))
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_feedback))
-    app.run_polling(drop_pending_updates=True)
-
+    
+    # Регистрация обработчика данных из Web App
+    app.add_handler(MessageHandler(filters.StatusUpdate.WEB_APP_DATA, web_app_data_handler))
+    
+    app.run_polling()
 
 if __name__ == "__main__":
     main()
