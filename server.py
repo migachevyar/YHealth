@@ -1,34 +1,15 @@
-import os
-import json
-import threading
-import hashlib
-import hmac
-import sqlite3
-import logging
-import urllib.request
+import os, json, threading, hashlib, hmac, sqlite3, logging, urllib.request
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from urllib.parse import urlparse, parse_qs
 
-logging.basicConfig(level=logging.WARNING)
 logger = logging.getLogger(__name__)
-
 BOT_TOKEN = os.environ.get("BOT_TOKEN", "")
 DB_PATH = os.environ.get("DB_PATH", "/app/data/yhealth.db")
 os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
 
-_JOB_QUEUE = None
-_BOT_LOOP = None
-
-def register_bot(job_queue, loop):
-    global _JOB_QUEUE, _BOT_LOOP
-    _JOB_QUEUE = job_queue
-    _BOT_LOOP = loop
-
 def get_db():
     db = sqlite3.connect(DB_PATH, check_same_thread=False)
-    db.execute("""CREATE TABLE IF NOT EXISTS user_data (
-        uid TEXT NOT NULL, key TEXT NOT NULL, value TEXT NOT NULL,
-        PRIMARY KEY (uid, key))""")
+    db.execute("CREATE TABLE IF NOT EXISTS user_data (uid TEXT NOT NULL, key TEXT NOT NULL, value TEXT NOT NULL, PRIMARY KEY (uid, key))")
     db.commit()
     return db
 
@@ -42,8 +23,7 @@ def db_get(uid, key):
 
 def db_set(uid, key, value):
     with DB_LOCK:
-        DB.execute("INSERT OR REPLACE INTO user_data (uid,key,value) VALUES (?,?,?)",
-                   (uid, key, json.dumps(value, ensure_ascii=False)))
+        DB.execute("INSERT OR REPLACE INTO user_data (uid,key,value) VALUES (?,?,?)", (uid, key, json.dumps(value, ensure_ascii=False)))
         DB.commit()
 
 def verify_tg(init_data):
@@ -53,20 +33,15 @@ def verify_tg(init_data):
         parsed = parse_qs(init_data, keep_blank_values=True)
         hash_val = parsed.get("hash", [""])[0]
         if not hash_val:
-            logger.warning("verify_tg: no hash")
             return None
         parts = [f"{k}={v[0]}" for k, v in sorted(parsed.items()) if k != "hash"]
         secret = hmac.new(b"WebAppData", BOT_TOKEN.encode(), hashlib.sha256).digest()
         computed = hmac.new(secret, "\n".join(parts).encode(), hashlib.sha256).hexdigest()
         if not hmac.compare_digest(computed, hash_val):
-            logger.warning(f"verify_tg: hash mismatch computed={computed[:8]} got={hash_val[:8]}")
             return None
         user = json.loads(parsed.get("user", ["{}"])[0])
-        uid = user.get("id")
-        logger.warning(f"verify_tg OK uid={uid}")
-        return uid
-    except Exception as e:
-        logger.warning(f"verify_tg exception: {e}")
+        return user.get("id")
+    except Exception:
         return None
 
 class Handler(BaseHTTPRequestHandler):
@@ -90,157 +65,108 @@ class Handler(BaseHTTPRequestHandler):
         try:
             with open(path, "rb") as f:
                 content = f.read()
-            mime = {
-                "html": "text/html;charset=utf-8", "js": "application/javascript",
-                "css": "text/css", "json": "application/json",
-                "png": "image/png", "svg": "image/svg+xml",
-            }.get(path.rsplit(".", 1)[-1].lower(), "application/octet-stream")
+            mime = {"html":"text/html;charset=utf-8","js":"application/javascript","css":"text/css","json":"application/json","png":"image/png","svg":"image/svg+xml"}.get(path.rsplit(".",1)[-1].lower(),"application/octet-stream")
             self.send_response(200)
             self.send_header("Content-Type", mime)
             self.send_header("Content-Length", len(content))
             self.end_headers()
             self.wfile.write(content)
         except FileNotFoundError:
-            self.send_response(404)
-            self.end_headers()
-
-    def _uid(self):
-        return str(verify_tg(self.headers.get("X-Init-Data", "")) or "")
+            self.send_response(404); self.end_headers()
 
     def do_OPTIONS(self):
-        self.send_response(200)
-        self._cors()
-        self.end_headers()
+        self.send_response(200); self._cors(); self.end_headers()
 
     def do_GET(self):
         path = urlparse(self.path).path
-        if path.startswith("/api/"):
-            uid = self._uid()
-            if not uid:
-                return self._json({"error": "unauthorized"}, 401)
-            if path == "/api/debug":
-                with DB_LOCK:
-                    rows = DB.execute("SELECT key, length(value) FROM user_data WHERE uid=?", (uid,)).fetchall()
-                    all_uids = DB.execute("SELECT DISTINCT uid FROM user_data").fetchall()
-                return self._json({
-                    "uid": uid,
-                    "keys": [{"key": r[0], "size": r[1]} for r in rows],
-                    "all_uids": [r[0] for r in all_uids]
-                })
-            if path == "/api/data":
-                return self._json({
-                    "days": db_get(uid, "days") or {},
-                    "weights": db_get(uid, "weights") or [],
-                    "profile": db_get(uid, "profile"),
-                })
-            if path.startswith("/api/schedule/"):
-                target_uid = path.split("/")[-1]
-                profile = db_get(target_uid, "profile")
-                return self._json({"profile": profile})
-            return self._json({"error": "not found"}, 404)
-
         base = os.path.join(os.path.dirname(os.path.abspath(__file__)), "webapp")
-        fp = os.path.join(base, path.lstrip("/")) if path not in ("/", "") else os.path.join(base, "index.html")
+
+        # Debug — no auth
+        if path == "/api/debug":
+            try:
+                rows = DB.execute("SELECT uid, key, length(value) as vlen FROM user_data ORDER BY uid, key").fetchall()
+                return self._json({"status":"ok","db_path":DB_PATH,"rows":[{"uid":r[0],"key":r[1],"len":r[2]} for r in rows]})
+            except Exception as e:
+                return self._json({"status":"error","msg":str(e)})
+
+        if path.startswith("/api/"):
+            uid = str(verify_tg(self.headers.get("X-Init-Data","")) or "")
+            if not uid:
+                return self._json({"error":"unauthorized"}, 401)
+            if path == "/api/data":
+                return self._json({"days":db_get(uid,"days") or {},"weights":db_get(uid,"weights") or [],"profile":db_get(uid,"profile")})
+            return self._json({"error":"not found"}, 404)
+
+        fp = os.path.join(base, path.lstrip("/")) if path not in ("/","") else os.path.join(base,"index.html")
         if os.path.isfile(fp):
             return self._file(fp)
-        return self._file(os.path.join(base, "index.html"))
+        return self._file(os.path.join(base,"index.html"))
 
     def do_POST(self):
         path = urlparse(self.path).path
         if not path.startswith("/api/"):
-            self.send_response(404)
-            self.end_headers()
-            return
+            self.send_response(404); self.end_headers(); return
 
-        length = int(self.headers.get("Content-Length", 0))
+        length = int(self.headers.get("Content-Length",0))
         try:
             payload = json.loads(self.rfile.read(length) if length else b"{}")
         except Exception:
-            return self._json({"error": "invalid json"}, 400)
+            return self._json({"error":"invalid json"}, 400)
 
-        uid = self._uid()
+        # Auth: try header first, then payload uid
+        uid = str(verify_tg(self.headers.get("X-Init-Data","")) or "")
         if not uid:
-            uid = str(payload.get("uid", ""))
+            uid = str(payload.get("uid",""))
         if not uid:
-            return self._json({"error": "unauthorized"}, 401)
-
-        logger.warning(f"POST {path} uid={uid}")
+            print(f"[AUTH] unauthorized POST {path}", flush=True)
+            return self._json({"error":"unauthorized"}, 401)
 
         if path == "/api/day":
             date, data = payload.get("date"), payload.get("data")
             if date and data is not None:
-                days = db_get(uid, "days") or {}
+                days = db_get(uid,"days") or {}
                 days[date] = data
-                db_set(uid, "days", days)
-            return self._json({"ok": True})
+                db_set(uid,"days",days)
+            return self._json({"ok":True})
 
         if path == "/api/weight":
             date, value = payload.get("date"), payload.get("value")
             if date and value is not None:
-                weights = db_get(uid, "weights") or []
-                if not isinstance(weights, list):
-                    weights = []
-                weights.insert(0, {"date": date, "value": value, "ts": payload.get("ts", 0)})
-                if len(weights) > 365:
-                    weights = weights[:365]
-                db_set(uid, "weights", weights)
-            return self._json({"ok": True})
+                w = db_get(uid,"weights") or []
+                if not isinstance(w,list): w=[]
+                w.insert(0,{"date":date,"value":value})
+                db_set(uid,"weights",w[:365])
+            return self._json({"ok":True})
 
         if path == "/api/profile":
             profile = payload.get("profile")
             if profile is not None:
-                db_set(uid, "profile", profile)
-                logger.warning(f"Profile saved uid={uid}")
-            return self._json({"ok": True})
-
-        if path == "/api/schedule":
-            schedule = payload.get("schedule")
-            if schedule is not None:
-                db_set(uid, "schedule", schedule)
-                logger.warning(f"Schedule saved uid={uid}")
-            return self._json({"ok": True})
-
-        if path == "/api/remind":
-            jq = _JOB_QUEUE
-            if jq is not None:
-                from bot import reschedule_user
-                import asyncio
-                try:
-                    asyncio.run_coroutine_threadsafe(reschedule_user(int(uid), jq), _BOT_LOOP)
-                    logger.warning(f"Remind rescheduled uid={uid}")
-                except Exception as e:
-                    logger.warning(f"Remind refresh failed: {e}")
-            else:
-                logger.warning("Remind: _JOB_QUEUE is None")
-            return self._json({"ok": True})
+                db_set(uid,"profile",profile)
+                print(f"[DB] profile saved uid={uid}", flush=True)
+            return self._json({"ok":True})
 
         if path == "/api/feedback":
-            text = payload.get("text", "")
-            name = payload.get("name", "")
-            fid = os.environ.get("FEEDBACK_CHAT_ID", "")
+            text = payload.get("text","")
+            name = payload.get("name","")
+            fid = os.environ.get("FEEDBACK_CHAT_ID","")
             if fid and text:
-                def send_fb():
+                def _send():
                     try:
-                        tok = os.environ.get("BOT_TOKEN", "")
-                        msg = f"💬 Замечание от {name}:\n\n{text}"
-                        data = json.dumps({"chat_id": fid, "text": msg}).encode()
-                        req = urllib.request.Request(
-                            f"https://api.telegram.org/bot{tok}/sendMessage",
-                            data=data, headers={"Content-Type": "application/json"}
-                        )
+                        tok = os.environ.get("BOT_TOKEN","")
+                        data = json.dumps({"chat_id":fid,"text":f"💬 {name}:\n\n{text}"}).encode()
+                        req = urllib.request.Request(f"https://api.telegram.org/bot{tok}/sendMessage", data=data, headers={"Content-Type":"application/json"})
                         urllib.request.urlopen(req, timeout=5)
                     except Exception as e:
-                        logger.error(f"Feedback error: {e}")
-                threading.Thread(target=send_fb, daemon=True).start()
-            return self._json({"ok": True})
+                        print(f"[FEEDBACK] error: {e}", flush=True)
+                threading.Thread(target=_send, daemon=True).start()
+            return self._json({"ok":True})
 
-        return self._json({"error": "not found"}, 404)
-
+        return self._json({"error":"not found"}, 404)
 
 def run():
-    port = int(os.environ.get("PORT", 8080))
-    httpd = HTTPServer(("0.0.0.0", port), Handler)
-    logger.warning(f"Server starting on port {port}")
+    port = int(os.environ.get("PORT",8080))
+    httpd = HTTPServer(("0.0.0.0",port), Handler)
+    print(f"[SERVER] started on port {port}", flush=True)
     httpd.serve_forever()
 
 def start_server():

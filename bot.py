@@ -8,7 +8,7 @@ from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, WebAppI
 from telegram.ext import Application, CommandHandler, MessageHandler, ContextTypes, filters
 from server import start_server
 
-logging.basicConfig(level=logging.WARNING)
+logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 logging.getLogger('httpx').setLevel(logging.WARNING)
 logger = logging.getLogger(__name__)
 
@@ -203,35 +203,8 @@ def build_grouped_text(t, meals, vits, meds):
     return "\n".join(lines)
 
 
-async def reschedule_user(user_id: int, jq):
-    """Called from server thread when app pushes updated schedule."""
-    for job in jq.jobs():
-        if job.data and job.data.get("chat_id") == user_id:
-            job.schedule_removal()
-
-    user_schedule = get_user_schedule(user_id)
-    reminders = build_reminders_from_schedule(user_schedule)
-    for r in reminders:
-        h, m = map(int, r["time"].split(":"))
-        utc_total = (h * 60 + m - TZ_OFFSET * 60) % (24 * 60)
-        jq.run_daily(
-            send_reminder,
-            time=dtime(utc_total // 60, utc_total % 60, 0),
-            data={"chat_id": user_id, "time": r["time"], "text": r["text"]},
-            name=f"rem_{user_id}_{r['time']}"
-        )
-    logger.warning(f"Auto-rescheduled {user_id}: {len(reminders)} reminders")
-
-
-
-    kb = [[InlineKeyboardButton("Открыть трекер", web_app=WebAppInfo(url=WEBAPP_URL))]]
-    await update.message.reply_text(
-        "Привет! Нажми кнопку чтобы открыть дневник здоровья.",
-        reply_markup=InlineKeyboardMarkup(kb)
-    )
-
-
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    print(f"[START] user={update.effective_user.id}", flush=True)
     kb = [[InlineKeyboardButton("Открыть трекер", web_app=WebAppInfo(url=WEBAPP_URL))]]
     await update.message.reply_text(
         "Привет! Нажми кнопку чтобы открыть дневник здоровья.",
@@ -284,6 +257,7 @@ async def send_reminder(context: ContextTypes.DEFAULT_TYPE):
 async def setup_reminders(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
     user_id = update.effective_user.id
+    print(f"[REMIND] user_id={user_id} chat_id={chat_id}", flush=True)
     jq = context.job_queue
 
     for job in jq.jobs():
@@ -358,13 +332,6 @@ def main():
     app.add_handler(CommandHandler("help", help_cmd))
     app.add_handler(MessageHandler(filters.StatusUpdate.WEB_APP_DATA, handle_webapp_data))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_feedback))
-
-    async def post_init(application):
-        import asyncio
-        from server import register_bot
-        register_bot(application.job_queue, asyncio.get_event_loop())
-
-    app.post_init = post_init
     app.run_polling(drop_pending_updates=True)
 
 
