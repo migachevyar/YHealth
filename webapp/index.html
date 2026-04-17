@@ -542,34 +542,37 @@ async function saveProfile() {
   const btn = document.querySelector('.setup-btn');
   if(btn) btn.classList.add('loading');
   
+  // Подготавливаем данные профиля
+  const dataToSave = {
+    uid: tg.initDataUnsafe.user?.id || 0,
+    profile: profile
+  };
+
   try {
-    // 1. Сохраняем в память Телеграма
+    // 1. Сохраняем в CloudStorage (локально в ТГ)
     await CS.setItem('profile', JSON.stringify(profile));
     
-    // 2. Отправляем в базу данных на Railway
-    // Мы используем пустой API адрес, чтобы запрос шел на тот же домен
+    // 2. Отправляем в SQLite на сервер Railway
     const response = await fetch('/api/profile', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'X-Init-Data': tg.initData
       },
-      body: JSON.stringify({ 
-        uid: tg.initDataUnsafe.user?.id || 0, 
-        profile: profile 
-      })
+      body: JSON.stringify(dataToSave)
     });
 
     if (response.ok) {
-      // 3. ОТПРАВЛЯЕМ СИГНАЛ БОТУ И ЗАКРЫВАЕМ
-      // Это сработает только если бот запущен кнопкой из меню (ReplyKeyboard)
+      console.log("Saved to SQLite successfully");
+      // 3. Отправляем сигнал боту
       tg.sendData(JSON.stringify({action: 'reload_reminders'}));
-      tg.close(); 
+      tg.close(); // Приложение закроется и бот сразу ответит
     } else {
-      tg.showAlert('Ошибка сервера. Попробуйте нажать еще раз.');
+      tg.showAlert('Ошибка сервера: ' + response.status);
     }
   } catch(e) {
-    tg.showAlert('Нет связи с сервером. Проверьте интернет.');
+    console.error("Save error:", e);
+    tg.showAlert('Ошибка связи с сервером. Проверьте интернет.');
   } finally {
     if(btn) btn.classList.remove('loading');
   }
