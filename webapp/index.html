@@ -438,6 +438,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Inter'
 const tg = window.Telegram?.WebApp;
 const TG_USER = tg?.initDataUnsafe?.user || {};
 const INIT_DATA = tg?.initData || '';
+const API = '__WEBAPP_URL__';  // injected by server
 if(tg){
   tg.expand(); tg.ready();
   tg.setHeaderColor('#09090f');
@@ -520,17 +521,17 @@ async function saveDayState(){
   allDays[todayKey()] = dayState;
 }
 async function pushScheduleToServer() {
-  if(!TG_USER.id) return;
+  if(!INIT_DATA) return;
   try {
     const sched = getMealSchedule().filter(m=>m.enabled);
     const vits = getActiveVits().map(v=>({
       id: v.id, name: v.name, time: getVitTime(v.id, profile), timingLabel: v.timingLabel
     }));
     const meds = (profile.meds||[]).map(m=>({name:m.name, dose:m.dose, time:m.time}));
-    await fetch(window.location.origin + '/api/schedule', {
+    await fetch(API + '/api/schedule', {
       method:'POST',
       headers:{'Content-Type':'application/json','X-Init-Data':INIT_DATA},
-      body: JSON.stringify({ uid: TG_USER.id, schedule: { meals: sched, vitamins: vits, meds } })
+      body: JSON.stringify({ uid: TG_USER.id||0, schedule: { meals: sched, vitamins: vits, meds } })
     });
   } catch(e) {
     console.warn('Schedule push failed:', e);
@@ -542,7 +543,7 @@ async function saveProfile(){
   // Save full profile to SQLite so bot can read it for reminders
   if(INIT_DATA || (TG_USER && TG_USER.id)) {
     try {
-      await fetch(window.location.origin + '/api/profile', {
+      await fetch(API + '/api/profile', {
         method: 'POST',
         headers: {'Content-Type':'application/json','X-Init-Data': INIT_DATA},
         body: JSON.stringify({ uid: TG_USER.id||0, profile: profile })
@@ -1363,7 +1364,7 @@ function closeFeedback(){ document.getElementById('fb-ov').classList.remove('ope
 async function sendFeedback(){
   const t=document.getElementById('fb-text').value.trim(); if(!t) return;
   try {
-    await fetch(window.location.origin+'/api/feedback', {
+    await fetch(API + '/api/feedback', {
       method:'POST',
       headers:{'Content-Type':'application/json','X-Init-Data':INIT_DATA},
       body: JSON.stringify({uid:TG_USER.id||0, name:TG_USER.first_name||'', text:t})

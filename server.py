@@ -65,6 +65,10 @@ class Handler(BaseHTTPRequestHandler):
         try:
             with open(path, "rb") as f:
                 content = f.read()
+            # Inject WEBAPP_URL into index.html so fetch works inside Telegram blob context
+            if path.endswith("index.html"):
+                webapp_url = os.environ.get("WEBAPP_URL", "")
+                content = content.replace(b"__WEBAPP_URL__", webapp_url.encode())
             mime = {"html":"text/html;charset=utf-8","js":"application/javascript","css":"text/css","json":"application/json","png":"image/png","svg":"image/svg+xml"}.get(path.rsplit(".",1)[-1].lower(),"application/octet-stream")
             self.send_response(200)
             self.send_header("Content-Type", mime)
@@ -143,13 +147,6 @@ class Handler(BaseHTTPRequestHandler):
             if profile is not None:
                 db_set(uid,"profile",profile)
                 print(f"[DB] profile saved uid={uid}", flush=True)
-            return self._json({"ok":True})
-
-        if path == "/api/schedule":
-            schedule = payload.get("schedule")
-            if schedule is not None:
-                db_set(uid,"schedule",schedule)
-                print(f"[DB] schedule saved uid={uid}", flush=True)
             return self._json({"ok":True})
 
         if path == "/api/feedback":
