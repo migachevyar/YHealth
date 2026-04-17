@@ -573,20 +573,6 @@ async function saveProfile() {
     if(btn) btn.classList.remove('loading');
   }
 }
-
-      // 2. Если всё сохранилось успешно, просим бота обновить уведомления
-      if (response.ok) {
-        // Эта строчка отправляет невидимое сообщение боту, чтобы он перезагрузил таймеры
-        tg.sendData(JSON.stringify({action: 'reload_reminders'}));
-        tg.showAlert('Настройки сохранены! Бот обновит уведомления автоматически.');
-      }
-      
-    } catch(e) { 
-      console.warn('profile SQLite save failed:', e); 
-      tg.showAlert('Ошибка сохранения на сервере');
-    }
-  }
-}
 async function saveWeights(){ await CS.set('weights', weights); }
 
 // ─── MEAL SCHEDULE HELPERS ───
