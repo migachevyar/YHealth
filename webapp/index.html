@@ -519,6 +519,7 @@ async function loadAll(){
 async function saveDayState(){
   await CS.set('day_'+todayKey(), dayState);
   allDays[todayKey()] = dayState;
+  saveProfile();
 }
 async function pushScheduleToServer() {
   if(!INIT_DATA) return;
@@ -535,46 +536,30 @@ async function pushScheduleToServer() {
     });
   } catch(e) {
     console.warn('Schedule push failed:', e);
+
   }
 }
 
 async function saveProfile() {
-  const btn = document.querySelector('.setup-btn');
-  if(btn) btn.classList.add('loading');
-  
-  // Подготавливаем данные профиля
-  const dataToSave = {
-    uid: tg.initDataUnsafe.user?.id || 0,
-    profile: profile
-  };
-
+  console.log("Auto-saving profile...");
   try {
-    // 1. Сохраняем в CloudStorage (локально в ТГ)
+    // Сохраняем локально
     await CS.setItem('profile', JSON.stringify(profile));
     
-    // 2. Отправляем в SQLite на сервер Railway
-    const response = await fetch('/api/profile', {
+    // Отправляем на сервер Railway
+    await fetch('/api/profile', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'X-Init-Data': tg.initData
       },
-      body: JSON.stringify(dataToSave)
+      body: JSON.stringify({ 
+        uid: tg.initDataUnsafe.user?.id || 0, 
+        profile: profile 
+      })
     });
-
-    if (response.ok) {
-      console.log("Saved to SQLite successfully");
-      // 3. Отправляем сигнал боту
-      tg.sendData(JSON.stringify({action: 'reload_reminders'}));
-      tg.close(); // Приложение закроется и бот сразу ответит
-    } else {
-      tg.showAlert('Ошибка сервера: ' + response.status);
-    }
   } catch(e) {
-    console.error("Save error:", e);
-    tg.showAlert('Ошибка связи с сервером. Проверьте интернет.');
-  } finally {
-    if(btn) btn.classList.remove('loading');
+    console.error("Save failed", e);
   }
 }
 async function saveWeights(){ await CS.set('weights', weights); }
@@ -853,6 +838,7 @@ async function toggleBot(i){
   if(dayState.water<0) dayState.water=0;
   await saveDayState();
   renderBottles();
+  saveProfile();
 }
 
 // ─── MEALS ───
@@ -885,6 +871,7 @@ async function toggleMeal(id){
     dayState.water=(dayState.water||0)+(was?-m.waterAmount:m.waterAmount);
     if(dayState.water<0) dayState.water=0;
     renderBottles();
+    saveProfile();
   }
   await saveDayState();
   document.getElementById('mc-'+id)?.classList.toggle('done',!!dayState.meals[id]);
@@ -934,6 +921,7 @@ async function toggleVit(id){
   document.getElementById('vc-'+id)?.classList.toggle('done',!!dayState.vitamins[id]);
   document.getElementById('vch-'+id)?.classList.toggle('on',!!dayState.vitamins[id]);
   updateRings();
+  saveProfile();
 }
 
 function toggleVitDetail(id){ document.getElementById('vd-'+id)?.classList.toggle('open'); }
@@ -1363,6 +1351,7 @@ async function toggleMedVisible(i, el){
   else{profile.medsHidden.push(i);el.classList.remove('on');}
   await saveProfile();
   renderMedsToday();
+  saveProfile();
 }
 
 // ─── DATE ───
@@ -1514,6 +1503,7 @@ async function finishOb(){
   await saveProfile(); // also pushes schedule to server
   hideOb();
   loadApp();
+  saveProfile();
 }
 
 function showOb(){
@@ -1563,6 +1553,7 @@ async function toggleMed(i){
   dayState.meds[i] = !dayState.meds[i];
   await saveDayState();
   renderMedsToday();
+  saveProfile();
 }
 
 function loadApp(){
@@ -1584,6 +1575,7 @@ async function init(){
   } else {
     document.getElementById('ob').style.display='none';
     loadApp();
+    saveProfile();
   }
 }
 
