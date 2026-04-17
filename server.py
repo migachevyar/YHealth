@@ -2,7 +2,6 @@ import os, json, threading, hashlib, hmac, sqlite3, logging, urllib.request
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from urllib.parse import urlparse, parse_qs
 
-logger = logging.getLogger(__name__)
 BOT_TOKEN = os.environ.get("BOT_TOKEN", "")
 DB_PATH = os.environ.get("DB_PATH", "/app/data/yhealth.db")
 os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
@@ -38,10 +37,12 @@ def verify_tg(init_data):
         secret = hmac.new(b"WebAppData", BOT_TOKEN.encode(), hashlib.sha256).digest()
         computed = hmac.new(secret, "\n".join(parts).encode(), hashlib.sha256).hexdigest()
         if not hmac.compare_digest(computed, hash_val):
+            print(f"[TG] hash mismatch", flush=True)
             return None
         user = json.loads(parsed.get("user", ["{}"])[0])
         return user.get("id")
-    except Exception:
+    except Exception as e:
+        print(f"[TG] verify error: {e}", flush=True)
         return None
 
 class Handler(BaseHTTPRequestHandler):
@@ -65,7 +66,6 @@ class Handler(BaseHTTPRequestHandler):
         try:
             with open(path, "rb") as f:
                 content = f.read()
-            # Inject WEBAPP_URL into index.html so fetch works inside Telegram blob context
             if path.endswith("index.html"):
                 webapp_url = os.environ.get("WEBAPP_URL", "")
                 content = content.replace(b"__WEBAPP_URL__", webapp_url.encode())
@@ -83,12 +83,13 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_GET(self):
         path = urlparse(self.path).path
+        print(f"[GET] {path}", flush=True)
         base = os.path.join(os.path.dirname(os.path.abspath(__file__)), "webapp")
 
-        # Debug — no auth
         if path == "/api/debug":
             try:
-                rows = DB.execute("SELECT uid, key, length(value) as vlen FROM user_data ORDER BY uid, key").fetchall()
+                with DB_LOCK:
+                    rows = DB.execute("SELECT uid, key, length(value) FROM user_data ORDER BY uid, key").fetchall()
                 return self._json({"status":"ok","db_path":DB_PATH,"rows":[{"uid":r[0],"key":r[1],"len":r[2]} for r in rows]})
             except Exception as e:
                 return self._json({"status":"error","msg":str(e)})
@@ -108,6 +109,8 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_POST(self):
         path = urlparse(self.path).path
+        print(f"[POST] {path}", flush=True)
+
         if not path.startswith("/api/"):
             self.send_response(404); self.end_headers(); return
 
@@ -117,12 +120,15 @@ class Handler(BaseHTTPRequestHandler):
         except Exception:
             return self._json({"error":"invalid json"}, 400)
 
-        # Auth: try header first, then payload uid
+        # Auth: try TG header first, then uid from payload body
         uid = str(verify_tg(self.headers.get("X-Init-Data","")) or "")
+        uid_src = "tg_header"
         if not uid:
             uid = str(payload.get("uid",""))
-        if not uid:
-            print(f"[AUTH] unauthorized POST {path}", flush=True)
+            uid_src = "payload"
+        print(f"[AUTH] {path} uid={uid!r} src={uid_src}", flush=True)
+        if not uid or uid == "0":
+            print(f"[AUTH] blocked uid={uid!r}", flush=True)
             return self._json({"error":"unauthorized"}, 401)
 
         if path == "/api/day":
@@ -149,6 +155,13 @@ class Handler(BaseHTTPRequestHandler):
                 print(f"[DB] profile saved uid={uid}", flush=True)
             return self._json({"ok":True})
 
+        if path == "/api/schedule":
+            schedule = payload.get("schedule")
+            if schedule is not None:
+                db_set(uid,"schedule",schedule)
+                print(f"[DB] schedule saved uid={uid}", flush=True)
+            return self._json({"ok":True})
+
         if path == "/api/feedback":
             text = payload.get("text","")
             name = payload.get("name","")
@@ -165,6 +178,7 @@ class Handler(BaseHTTPRequestHandler):
                 threading.Thread(target=_send, daemon=True).start()
             return self._json({"ok":True})
 
+        print(f"[POST] no handler for {path}", flush=True)
         return self._json({"error":"not found"}, 404)
 
 def run():
