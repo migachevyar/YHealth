@@ -539,24 +539,40 @@ async function pushScheduleToServer() {
 }
 
 async function saveProfile() {
-  // Сохраняем в память Телеграма
-  await CS.set('profile', profile);
+  const btn = document.querySelector('.setup-btn');
+  if(btn) btn.classList.add('loading');
+  
+  try {
+    // 1. Сохраняем в CloudStorage Телеграма
+    await CS.setItem('profile', JSON.stringify(profile));
+    
+    // 2. Отправляем на бэкенд Railway (в базу данных)
+    const response = await fetch(API + '/api/profile', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Init-Data': INIT_DATA
+      },
+      body: JSON.stringify({ 
+        uid: TG_USER.id || 0, 
+        profile: profile 
+      })
+    });
 
-  // Если мы понимаем, кто этот пользователь (есть ID)
-  if(INIT_DATA || (TG_USER && TG_USER.id)) {
-    try {
-      // 1. Отправляем данные на твой сервер в базу SQLite
-      const response = await fetch(API + '/api/profile', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Init-Data': INIT_DATA
-        },
-        body: JSON.stringify({ 
-          uid: TG_USER.id || 0, 
-          profile: profile 
-        })
-      });
+    if (response.ok) {
+      // 3. ОТПРАВЛЯЕМ КОМАНДУ БОТУ ОБНОВИТЬСЯ
+      tg.sendData(JSON.stringify({action: 'reload_reminders'}));
+      tg.showAlert('Настройки сохранены!');
+    } else {
+      tg.showAlert('Ошибка сохранения на сервере. Попробуйте еще раз.');
+    }
+  } catch(e) {
+    console.error('Save failed:', e);
+    tg.showAlert('Ошибка связи с сервером');
+  } finally {
+    if(btn) btn.classList.remove('loading');
+  }
+}
 
       // 2. Если всё сохранилось успешно, просим бота обновить уведомления
       if (response.ok) {
