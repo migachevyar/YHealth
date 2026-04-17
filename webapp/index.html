@@ -547,7 +547,7 @@ async function saveProfile() {
     await CS.setItem('profile', JSON.stringify(profile));
     
     // Отправляем на сервер Railway
-    await fetch('/api/profile', {
+    await fetch(API + '/api/profile', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
