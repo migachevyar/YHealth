@@ -1,34 +1,1587 @@
-<script>
-// Находишь функцию saveProfile и заменяешь её на эту:
-async function saveProfile() {
-    const btn = document.querySelector('.setup-btn');
-    if(btn) btn.classList.add('loading');
-    
-    try {
-        // Сохраняем в облако ТГ (как и было)
-        await tg.CloudStorage.setItem('profile', JSON.stringify(profile));
-        
-        // НОВОЕ: Отправляем данные на твой сервер Railway, чтобы бот их увидел
-        const initData = tg.initData;
-        const response = await fetch('/api/profile', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({
-                _auth: initData,
-                profile: profile
-            })
-        });
-
-        if (response.ok) {
-            tg.showAlert('Настройки сохранены! Бот обновит уведомления.');
-            // Сразу просим бота обновить расписание
-            tg.sendData(JSON.stringify({action: 'reload_reminders'}));
-        }
-    } catch (e) {
-        console.error(e);
-        tg.showAlert('Ошибка сохранения');
-    } finally {
-        if(btn) btn.classList.remove('loading');
-    }
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"/>
+<title>YHealth</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@phosphor-icons/web@2.1.1/src/regular/style.css"/>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+:root{
+  --bg:#09090f;--bg2:#111118;--bg3:#1a1a24;--bg4:#22222e;
+  --text:#fff;--text2:#9090a8;--text3:#55556a;
+  --green:#2fd158;--green3:rgba(47,209,88,.14);
+  --blue:#0a84ff;--blue3:rgba(10,132,255,.14);
+  --orange:#ff9f0a;--orange3:rgba(255,159,10,.14);
+  --purple:#bf5af2;--purple3:rgba(191,90,242,.14);
+  --red:#ff453a;--red3:rgba(255,69,58,.14);
+  --teal:#5ac8fa;--teal3:rgba(90,200,250,.14);
+  --card:rgba(255,255,255,.05);--border:rgba(255,255,255,.08);
+  --r:16px;--r-sm:11px;
+  --st:env(safe-area-inset-top,0px);
+  --sb:env(safe-area-inset-bottom,0px);
 }
+html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Inter',system-ui,sans-serif;overflow:hidden}
+.app{height:100%;display:flex;flex-direction:column}
+.screens{flex:1;overflow:hidden;position:relative}
+.screen{position:absolute;inset:0;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;scrollbar-width:none;transition:opacity .25s,transform .25s cubic-bezier(.4,0,.2,1)}
+.screen::-webkit-scrollbar{display:none}
+.screen.hidden{opacity:0;pointer-events:none;transform:translateY(8px)}
+.pad{padding:0 16px calc(80px + var(--sb))}
+.hdr{padding:calc(60px + var(--st)) 16px 0}
+.hdr-sub{font-size:14px;color:var(--text2);margin-bottom:2px}
+.hdr-title{font-size:30px;font-weight:800;letter-spacing:-.7px}
+.sec{font-size:19px;font-weight:700;margin:18px 0 10px;letter-spacing:-.3px}
+/* TABBAR */
+.tabbar{flex-shrink:0;background:rgba(9,9,15,.95);backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);border-top:.5px solid var(--border);padding:8px 0 calc(12px + var(--sb));display:flex;justify-content:space-around}
+.tab{display:flex;flex-direction:column;align-items:center;gap:3px;cursor:pointer;padding:2px 14px}
+.tab i{font-size:25px;transition:color .2s}
+.tab span{font-size:11px;font-weight:600;color:var(--text3);transition:color .2s}
+.tab.active i{color:var(--green)}
+.tab.active span{color:var(--green)}
+.tab:not(.active) i{color:var(--text3)}
+/* RINGS */
+.rings{display:flex;gap:9px;padding:10px 0 4px}
+.ring-card{flex:1;background:var(--card);border:.5px solid var(--border);border-radius:var(--r);padding:12px 6px;display:flex;flex-direction:column;align-items:center;gap:5px}
+.ring-wrap{position:relative;width:64px;height:64px}
+.ring-wrap svg{width:64px;height:64px;transform:rotate(-90deg)}
+.rv{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700}
+.rl{font-size:11px;color:var(--text2);font-weight:600;text-align:center}
+.rs{font-size:10px;color:var(--text3);text-align:center}
+/* WATER */
+.water-card{background:var(--card);border:.5px solid var(--border);border-radius:var(--r);padding:13px;margin-bottom:8px}
+.water-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:9px}
+.water-title{font-size:15px;font-weight:600;display:flex;align-items:center;gap:7px}
+.water-title i{font-size:20px;color:var(--blue)}
+.water-amt{font-size:14px;color:var(--blue);font-weight:700}
+.water-track{height:5px;background:var(--bg4);border-radius:3px;overflow:hidden;margin-bottom:11px}
+.water-fill{height:100%;background:var(--blue);border-radius:3px;transition:width .4s cubic-bezier(.4,0,.2,1)}
+.bottles{display:flex;gap:5px}
+.bot{flex:1;height:44px;border-radius:9px;border:.5px solid var(--border);background:var(--bg3);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .2s;position:relative;overflow:hidden}
+.bot.full{background:var(--blue3);border-color:rgba(10,132,255,.35)}
+.bot.half::after{content:'';position:absolute;bottom:0;left:0;right:0;height:50%;background:rgba(10,132,255,.18)}
+.bot i{font-size:22px;color:var(--text3);position:relative;z-index:1;transition:color .2s}
+.bot.full i,.bot.half i{color:var(--blue)}
+/* MEAL CARD */
+.meal-card{background:var(--card);border:.5px solid var(--border);border-radius:var(--r);margin-bottom:7px;overflow:hidden;cursor:pointer}
+.meal-card.done{border-color:rgba(47,209,88,.25);background:rgba(47,209,88,.05)}
+.meal-hdr{display:flex;align-items:center;gap:12px;padding:14px}
+.meal-ico{width:44px;height:44px;border-radius:13px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.meal-ico i{font-size:22px}
+.meal-name{font-size:15px;font-weight:600}
+.meal-time-lbl{font-size:12px;color:var(--text3);margin-top:1px}
+.meal-check{width:26px;height:26px;border-radius:50%;border:1.5px solid var(--border);display:flex;align-items:center;justify-content:center;margin-left:auto;flex-shrink:0;transition:all .25s cubic-bezier(.34,1.56,.64,1)}
+.meal-check.on{background:var(--green);border-color:var(--green)}
+.meal-check i{font-size:13px;color:#fff;opacity:0;transform:scale(0);transition:all .25s cubic-bezier(.34,1.56,.64,1)}
+.meal-check.on i{opacity:1;transform:scale(1)}
+.meal-detail{display:none;padding:0 14px 14px;border-top:.5px solid var(--border)}
+.meal-detail.open{display:block;padding-top:10px}
+.sug{background:var(--bg3);border-radius:11px;padding:11px 13px;margin-bottom:6px}
+.sug:last-child{margin-bottom:0}
+.sug-name{font-size:14px;font-weight:600;margin-bottom:3px}
+.sug-desc{font-size:12px;color:var(--text2);line-height:1.5}
+/* VIT CARD */
+.vit-card{background:var(--card);border:.5px solid var(--border);border-radius:var(--r);margin-bottom:7px;overflow:hidden}
+.vit-card.done{border-color:rgba(47,209,88,.25);background:rgba(47,209,88,.04)}
+.vit-hdr{display:flex;align-items:center;gap:11px;padding:13px;cursor:pointer}
+.vit-dot{width:44px;height:44px;border-radius:13px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.vit-dot i{font-size:22px}
+.vit-name{font-size:15px;font-weight:600}
+.vit-meta{font-size:12px;color:var(--text3);margin-top:2px;display:flex;align-items:center;gap:5px}
+.vit-time-badge{font-weight:700}
+.vit-check{width:26px;height:26px;border-radius:50%;border:1.5px solid var(--border);display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-left:auto;transition:all .25s cubic-bezier(.34,1.56,.64,1)}
+.vit-check.on{background:var(--green);border-color:var(--green)}
+.vit-check i{font-size:13px;color:#fff;opacity:0;transform:scale(0);transition:all .25s cubic-bezier(.34,1.56,.64,1)}
+.vit-check.on i{opacity:1;transform:scale(1)}
+.vit-detail{display:none;padding:0 13px 13px;border-top:.5px solid var(--border)}
+.vit-detail.open{display:block;padding-top:10px}
+.vit-chips{display:flex;gap:7px;margin-bottom:8px}
+.vit-chip{background:var(--bg3);border-radius:8px;padding:7px 10px;flex:1;text-align:center}
+.chip-lbl{font-size:10px;color:var(--text3);margin-bottom:2px}
+.chip-val{font-size:13px;font-weight:700}
+.vit-desc{font-size:13px;color:var(--text2);line-height:1.55;background:var(--bg3);border-radius:10px;padding:10px 12px}
+.vit-warn{font-size:12px;color:var(--orange);background:var(--orange3);border-radius:8px;padding:8px 10px;margin-top:6px;display:flex;gap:6px;align-items:flex-start}
+/* FOOD SCREEN */
+.food-item{background:var(--card);border:.5px solid var(--border);border-radius:var(--r);margin-bottom:7px;overflow:hidden}
+.food-hdr{display:flex;align-items:center;gap:11px;padding:13px;cursor:pointer}
+.food-ico{width:44px;height:44px;border-radius:13px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.food-ico i{font-size:22px}
+.food-name{font-size:15px;font-weight:600}
+.food-sub{font-size:12px;color:var(--text3);margin-top:1px}
+.food-arrow{font-size:15px;color:var(--text3);margin-left:auto;transition:transform .2s;flex-shrink:0}
+.food-arrow.open{transform:rotate(90deg)}
+.food-detail{display:none;padding:0 13px 13px;border-top:.5px solid var(--border)}
+.food-detail.open{display:block;padding-top:10px}
+.dish{background:var(--bg3);border-radius:10px;padding:10px 12px;margin-bottom:6px}
+.dish:last-child{margin-bottom:0}
+.dish-name{font-size:14px;font-weight:600;margin-bottom:3px}
+.dish-desc{font-size:12px;color:var(--text2);line-height:1.5}
+.dish-macro{font-size:11px;color:var(--text3);margin-top:4px}
+/* STATS */
+.stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-bottom:7px}
+.stat-card{background:var(--card);border:.5px solid var(--border);border-radius:var(--r);padding:13px}
+.st-lbl{font-size:11px;color:var(--text3);margin-bottom:4px;display:flex;align-items:center;gap:4px}
+.st-lbl i{font-size:12px}
+.st-val{font-size:24px;font-weight:700;letter-spacing:-.5px}
+.st-sub{font-size:12px;color:var(--text2);margin-top:2px}
+.chart-card{background:var(--card);border:.5px solid var(--border);border-radius:var(--r);padding:13px;margin-bottom:7px}
+.chart-ttl{font-size:13px;font-weight:600;margin-bottom:10px;display:flex;align-items:center;gap:6px}
+.bars{display:flex;gap:4px;align-items:flex-end;height:64px}
+.bar-col{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px}
+.bar{width:100%;border-radius:3px 3px 0 0;min-height:3px}
+.bar-d{font-size:9px;color:var(--text3);font-weight:500}
+.streak-card{background:linear-gradient(135deg,rgba(255,159,10,.1),rgba(255,159,10,.03));border:.5px solid rgba(255,159,10,.2);border-radius:var(--r);padding:13px;display:flex;align-items:center;gap:11px;margin-bottom:7px}
+.streak-ico{width:38px;height:38px;background:rgba(255,159,10,.14);border-radius:11px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.streak-ico i{font-size:20px;color:var(--orange)}
+.streak-num{font-size:20px;font-weight:700;color:var(--orange);letter-spacing:-.5px}
+.streak-lbl{font-size:11px;color:var(--text2);margin-top:1px}
+/* WEIGHT */
+.weight-card{background:var(--card);border:.5px solid var(--border);border-radius:var(--r);padding:13px;margin-bottom:7px}
+.w-row{display:flex;align-items:center;gap:9px;margin-top:9px}
+.w-row label{font-size:14px;color:var(--text2)}
+.w-input{background:var(--bg3);border:.5px solid var(--border);border-radius:8px;color:var(--text);font-size:16px;font-weight:600;padding:7px 11px;width:90px;outline:none;font-family:inherit}
+.w-input:focus{border-color:rgba(10,132,255,.5)}
+.w-btn{background:var(--blue3);border:.5px solid rgba(10,132,255,.35);border-radius:8px;color:var(--blue);font-size:14px;font-weight:700;padding:7px 13px;cursor:pointer;font-family:inherit}
+.w-saved{font-size:11px;color:var(--green);display:none}
+.w-hist{font-size:12px;color:var(--text2);margin-top:9px;line-height:1.8}
+/* PROFILE */
+.p-hero{display:flex;align-items:center;gap:13px;background:var(--card);border:.5px solid var(--border);border-radius:var(--r);padding:14px;margin-bottom:9px}
+.p-avatar{width:50px;height:50px;border-radius:50%;background:var(--green3);border:2px solid var(--green);display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:700;color:var(--green);flex-shrink:0}
+.p-name{font-size:16px;font-weight:700}
+.p-sub{font-size:13px;color:var(--text2);margin-top:2px}
+.p-section{background:var(--card);border:.5px solid var(--border);border-radius:var(--r);overflow:hidden;margin-bottom:7px}
+.p-row{display:flex;align-items:center;gap:11px;padding:12px 13px;border-bottom:.5px solid var(--border)}
+.p-row:last-child{border-bottom:none}
+.p-row-ico{width:32px;height:32px;border-radius:9px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.p-row-ico i{font-size:16px}
+.p-row-label{flex:1;font-size:14px;font-weight:500}
+.p-row-val{font-size:13px;color:var(--text3)}
+.p-time-input{background:transparent;border:none;color:var(--green);font-size:13px;font-weight:700;font-family:inherit;outline:none;text-align:right}
+.ntoggle{width:40px;height:23px;border-radius:12px;background:var(--bg4);position:relative;cursor:pointer;flex-shrink:0;transition:background .2s}
+.ntoggle.on{background:var(--green)}
+.ntoggle-knob{position:absolute;top:2.5px;left:2.5px;width:18px;height:18px;border-radius:50%;background:#fff;transition:transform .2s cubic-bezier(.34,1.56,.64,1)}
+.ntoggle.on .ntoggle-knob{transform:translateX(17px)}
+.reset-btn{background:transparent;border:none;color:var(--text3);font-size:12px;cursor:pointer;font-family:inherit;padding:8px 13px}
+/* MEDS */
+.med-row{display:flex;align-items:center;gap:11px;padding:12px 13px;border-bottom:.5px solid var(--border);cursor:pointer}
+.med-row:last-child{border-bottom:none}
+.add-btn{display:flex;align-items:center;gap:8px;padding:12px 13px;cursor:pointer;color:var(--blue);font-size:14px;font-weight:600}
+/* MODAL */
+.modal-ov{position:absolute;inset:0;background:rgba(0,0,0,.6);display:none;align-items:flex-end;z-index:200}
+.modal-ov.open{display:flex}
+.modal{background:var(--bg2);border-radius:20px 20px 0 0;padding:20px 16px calc(24px + var(--sb));width:100%}
+.modal-title{font-size:16px;font-weight:700;margin-bottom:12px}
+.modal-input{width:100%;background:var(--bg3);border:.5px solid var(--border);border-radius:11px;color:var(--text);font-size:15px;padding:11px 13px;outline:none;font-family:inherit;margin-bottom:9px}
+.modal-input:focus{border-color:rgba(10,132,255,.5)}
+.modal-row{display:flex;gap:8px;margin-bottom:9px}
+.modal-btns{display:flex;gap:7px;margin-top:3px}
+.m-cancel{flex:1;background:var(--bg3);border:.5px solid var(--border);border-radius:10px;color:var(--text2);font-size:14px;font-weight:600;padding:11px;cursor:pointer;font-family:inherit}
+.m-ok{flex:1;background:var(--blue3);border:.5px solid rgba(10,132,255,.35);border-radius:10px;color:var(--blue);font-size:14px;font-weight:700;padding:11px;cursor:pointer;font-family:inherit}
+/* ONBOARDING */
+.ob{position:absolute;inset:0;background:var(--bg);z-index:300;display:flex;flex-direction:column;transition:opacity .35s}
+.ob.hidden{opacity:0;pointer-events:none}
+.ob-inner{flex:1;display:flex;flex-direction:column;padding:calc(64px + var(--st)) 22px 22px;overflow-y:auto;scrollbar-width:none}
+.ob-inner::-webkit-scrollbar{display:none}
+.ob-step{display:none;flex-direction:column;flex:1}
+.ob-step.active{display:flex}
+.ob-prog{display:flex;gap:5px;margin-bottom:28px;flex-shrink:0}
+.ob-dot{flex:1;height:3px;border-radius:2px;background:var(--bg4);transition:background .3s}
+.ob-dot.done{background:var(--green)}
+.ob-dot.cur{background:var(--green);opacity:.5}
+.ob-ico{width:68px;height:68px;border-radius:20px;display:flex;align-items:center;justify-content:center;margin-bottom:18px;flex-shrink:0}
+.ob-ico i{font-size:34px}
+.ob-title{font-size:27px;font-weight:800;letter-spacing:-.7px;margin-bottom:7px;line-height:1.1}
+.ob-sub{font-size:14px;color:var(--text2);line-height:1.5;margin-bottom:24px}
+.ob-body{flex:1}
+.ob-footer{flex-shrink:0;padding-top:18px}
+.ob-btn{width:100%;padding:15px;border-radius:13px;background:var(--green);border:none;color:#000;font-size:16px;font-weight:700;cursor:pointer;font-family:inherit;letter-spacing:-.2px}
+.ob-btn.sec{background:var(--bg3);color:var(--text2);margin-top:7px}
+.ob-field{margin-bottom:15px}
+.ob-lbl{font-size:12px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:7px}
+.ob-input{width:100%;background:var(--bg3);border:.5px solid var(--border);border-radius:11px;color:var(--text);font-size:15px;padding:13px 14px;outline:none;font-family:inherit;transition:border-color .2s}
+.ob-input:focus{border-color:rgba(47,209,88,.5)}
+.ob-sel{flex:1;padding:12px 8px;border-radius:11px;border:1.5px solid var(--border);background:var(--bg3);color:var(--text2);font-size:14px;font-weight:600;cursor:pointer;text-align:center;font-family:inherit;transition:all .18s}
+.ob-sel.active{border-color:var(--green);background:var(--green3);color:var(--green)}
+.ob-goal{display:flex;align-items:center;gap:13px;padding:14px;background:var(--bg3);border-radius:13px;cursor:pointer;border:1.5px solid transparent;margin-bottom:7px;transition:all .18s}
+.ob-goal.active{border-color:rgba(47,209,88,.35);background:rgba(47,209,88,.07)}
+.ob-goal-ico{width:42px;height:42px;border-radius:12px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.ob-goal-ico i{font-size:21px}
+.ob-goal-title{font-size:14px;font-weight:700}
+.ob-goal-sub{font-size:11px;color:var(--text3);margin-top:2px}
+.ob-goal-check{width:20px;height:20px;border-radius:50%;border:1.5px solid var(--border);margin-left:auto;flex-shrink:0;display:flex;align-items:center;justify-content:center;transition:all .2s cubic-bezier(.34,1.56,.64,1)}
+.ob-goal.active .ob-goal-check{background:var(--green);border-color:var(--green)}
+.ob-goal-check i{font-size:10px;color:#fff;opacity:0;transform:scale(0);transition:all .2s cubic-bezier(.34,1.56,.64,1)}
+.ob-goal.active .ob-goal-check i{opacity:1;transform:scale(1)}
+.ob-vit-item{display:flex;align-items:center;gap:11px;padding:11px 13px;background:var(--bg3);border-radius:11px;cursor:pointer;border:1.5px solid transparent;margin-bottom:6px;transition:all .18s}
+.ob-vit-item.active{border-color:rgba(47,209,88,.3);background:rgba(47,209,88,.07)}
+.ob-vit-ico{width:38px;height:38px;border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.ob-vit-ico i{font-size:18px}
+.ob-vit-name{font-size:14px;font-weight:600;flex:1}
+.ob-vit-dose{font-size:11px;margin-top:1px}
+.ob-check{width:20px;height:20px;border-radius:50%;border:1.5px solid var(--border);display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .2s cubic-bezier(.34,1.56,.64,1)}
+.ob-vit-item.active .ob-check{background:var(--green);border-color:var(--green)}
+.ob-check i{font-size:10px;color:#fff;opacity:0;transform:scale(0);transition:all .2s cubic-bezier(.34,1.56,.64,1)}
+.ob-vit-item.active .ob-check i{opacity:1;transform:scale(1)}
+.meal-preview-row{display:flex;align-items:center;gap:9px;padding:8px 0;border-bottom:.5px solid var(--border)}
+.meal-preview-row:last-child{border-bottom:none}
+.mpr-name{font-size:14px;color:var(--text);flex:1}
+.mpr-toggle{width:20px;height:20px;border-radius:50%;border:1.5px solid var(--border);display:flex;align-items:center;justify-content:center;flex-shrink:0;cursor:pointer;transition:all .2s}
+.mpr-toggle.on{background:var(--green);border-color:var(--green)}
+.mpr-toggle i{font-size:10px;color:#fff;opacity:0;transform:scale(0);transition:all .2s}
+.mpr-toggle.on i{opacity:1;transform:scale(1)}
+/* NOTIFY BANNER */
+.notif-banner{background:var(--orange3);border:.5px solid rgba(255,159,10,.25);border-radius:var(--r);padding:12px 14px;margin-bottom:8px;font-size:13px;color:var(--text2);display:none}
+.notif-banner.show{display:block}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="screens">
+
+    <!-- TODAY -->
+    <div class="screen" id="s-today">
+      <div class="hdr">
+        <div class="hdr-sub" id="today-date"></div>
+        <div class="hdr-title" id="today-title">Доброе утро</div>
+      </div>
+      <div class="pad">
+        <div class="rings" id="rings-row">
+          <div class="ring-card"><div class="ring-wrap"><svg viewBox="0 0 64 64"><circle cx="32" cy="32" r="26" fill="none" stroke="rgba(47,209,88,.12)" stroke-width="6"/><circle id="rf" cx="32" cy="32" r="26" fill="none" stroke="#2fd158" stroke-width="6" stroke-dasharray="163.4" stroke-dashoffset="163.4" stroke-linecap="round"/></svg><div class="rv" id="rf-v">0%</div></div><div class="rl">Питание</div><div class="rs" id="rf-s">0 из 0</div></div>
+          <div class="ring-card"><div class="ring-wrap"><svg viewBox="0 0 64 64"><circle cx="32" cy="32" r="26" fill="none" stroke="rgba(10,132,255,.12)" stroke-width="6"/><circle id="rw" cx="32" cy="32" r="26" fill="none" stroke="#0a84ff" stroke-width="6" stroke-dasharray="163.4" stroke-dashoffset="163.4" stroke-linecap="round"/></svg><div class="rv" id="rw-v">0%</div></div><div class="rl">Вода</div><div class="rs" id="rw-s">0 л</div></div>
+          <div class="ring-card"><div class="ring-wrap"><svg viewBox="0 0 64 64"><circle cx="32" cy="32" r="26" fill="none" stroke="rgba(191,90,242,.12)" stroke-width="6"/><circle id="rv" cx="32" cy="32" r="26" fill="none" stroke="#bf5af2" stroke-width="6" stroke-dasharray="163.4" stroke-dashoffset="163.4" stroke-linecap="round"/></svg><div class="rv" id="rv-v">0%</div></div><div class="rl">Витамины</div><div class="rs" id="rv-s">0 из 0</div></div>
+        </div>
+        <div class="water-card">
+          <div class="water-top"><span class="water-title"><i class="ph ph-drop-half"></i>Вода</span><span class="water-amt" id="w-amt">0 / 2.5 л</span></div>
+          <div class="water-track"><div class="water-fill" id="w-fill" style="width:0%"></div></div>
+          <div class="bottles" id="bottles"></div>
+        </div>
+        <div class="sec">Питание сегодня</div>
+        <div id="meals-list"></div>
+        <div class="sec">Витамины</div>
+        <div id="vits-list"></div>
+        <div id="meds-today-section" style="display:none">
+          <div class="sec">Лекарства</div>
+          <div id="meds-today-list"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- FOOD -->
+    <div class="screen hidden" id="s-food">
+      <div class="hdr"><div class="hdr-sub">Рекомендации на сегодня</div><div class="hdr-title">Питание</div></div>
+      <div class="pad" id="food-content"></div>
+    </div>
+
+    <!-- STATS -->
+    <div class="screen hidden" id="s-stats">
+      <div class="hdr"><div class="hdr-sub" id="stats-month"></div><div class="hdr-title">Статистика</div></div>
+      <div class="pad">
+        <div class="streak-card"><div class="streak-ico"><i class="ph ph-flame"></i></div><div><div class="streak-num" id="streak-num">0 дней</div><div class="streak-lbl">Серия без пропусков</div></div></div>
+        <div class="stat-grid">
+          <div class="stat-card"><div class="st-lbl"><i class="ph ph-scales" style="color:var(--green)"></i>Вес</div><div class="st-val" id="st-w" style="color:var(--green)">—</div><div class="st-sub" id="st-w-s">не записан</div></div>
+          <div class="stat-card"><div class="st-lbl"><i class="ph ph-check-circle" style="color:var(--blue)"></i>Выполнено</div><div class="st-val" id="st-d">0</div><div class="st-sub">дней недели</div></div>
+          <div class="stat-card"><div class="st-lbl"><i class="ph ph-drop" style="color:var(--blue)"></i>Ср. вода</div><div class="st-val" id="st-wt" style="color:var(--blue)">0</div><div class="st-sub">л в день</div></div>
+          <div class="stat-card"><div class="st-lbl"><i class="ph ph-pill" style="color:var(--purple)"></i>Витамины</div><div class="st-val" id="st-v" style="color:var(--purple)">0%</div><div class="st-sub">выполнение</div></div>
+        </div>
+        <div class="chart-card"><div class="chart-ttl"><i class="ph ph-drop" style="color:var(--blue)"></i>Вода по дням, л</div><div class="bars" id="bc-w"></div></div>
+        <div class="chart-card"><div class="chart-ttl"><i class="ph ph-fork-knife" style="color:var(--green)"></i>Питание по дням</div><div class="bars" id="bc-f"></div></div>
+        <div class="weight-card">
+          <div class="sec" style="margin-top:0">История веса</div>
+          <div style="font-size:12px;color:var(--text3);margin-bottom:10px">Записывай утром натощак для точной динамики</div>
+          <div id="w-chart" style="margin-bottom:12px"></div>
+          <div class="w-row"><label>кг</label><input class="w-input" type="number" id="w-inp" placeholder="—" step="0.1" min="30" max="300"/><button class="w-btn" onclick="saveWeight()">+ Добавить</button><span class="w-saved" id="w-saved">✓</span></div>
+          <div id="w-hist" style="margin-top:10px"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PROFILE -->
+    <div class="screen hidden" id="s-profile">
+      <div class="hdr"><div class="hdr-sub">Настройки</div><div class="hdr-title">Профиль</div></div>
+      <div class="pad">
+        <div class="p-hero"><div class="p-avatar" id="p-ava">Я</div><div><div class="p-name" id="p-name">Мой дневник</div><div class="p-sub" id="p-sub"></div></div></div>
+
+        <div class="sec">Расписание питания</div>
+        <div class="p-section" id="meal-schedule-list"></div>
+
+        <div class="sec">Витамины</div>
+        <div class="p-section" id="vit-schedule-list"></div>
+
+        <div class="sec">Лекарства</div>
+        <div class="p-section" id="meds-list">
+          <div class="add-btn" onclick="openMedModal()"><i class="ph ph-plus-circle" style="font-size:20px"></i>Добавить лекарство</div>
+        </div>
+
+        <div class="sec">Прочее</div>
+        <div class="p-section">
+          <div class="p-row" onclick="openFeedback()" style="cursor:pointer">
+            <div class="p-row-ico" style="background:var(--green3)"><i class="ph ph-pencil-simple" style="color:var(--green)"></i></div>
+            <span class="p-row-label">Написать замечание</span>
+            <i class="ph ph-caret-right" style="color:var(--text3)"></i>
+          </div>
+          <div class="p-row" onclick="restartOnboarding()" style="cursor:pointer">
+            <div class="p-row-ico" style="background:var(--orange3)"><i class="ph ph-arrows-clockwise" style="color:var(--orange)"></i></div>
+            <span class="p-row-label">Перенастроить профиль</span>
+            <i class="ph ph-caret-right" style="color:var(--text3)"></i>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="tabbar">
+    <div class="tab active" onclick="switchTab('today',this)"><i class="ph ph-list-checks"></i><span>Сегодня</span></div>
+    <div class="tab" onclick="switchTab('food',this)"><i class="ph ph-fork-knife"></i><span>Питание</span></div>
+    <div class="tab" onclick="switchTab('stats',this)"><i class="ph ph-chart-line-up"></i><span>Статистика</span></div>
+    <div class="tab" onclick="switchTab('profile',this)"><i class="ph ph-user-circle"></i><span>Профиль</span></div>
+  </div>
+</div>
+
+<!-- FEEDBACK MODAL -->
+<div class="modal-ov" id="fb-ov">
+  <div class="modal">
+    <div class="modal-title">Написать замечание</div>
+    <textarea class="modal-input" id="fb-text" rows="4" placeholder="Что хотите изменить..."></textarea>
+    <div class="modal-btns"><button class="m-cancel" onclick="closeFeedback()">Отмена</button><button class="m-ok" onclick="sendFeedback()">Отправить</button></div>
+  </div>
+</div>
+
+<!-- MED MODAL -->
+<div class="modal-ov" id="med-ov">
+  <div class="modal">
+    <div class="modal-title" id="med-modal-title">Добавить лекарство</div>
+    <input class="modal-input" id="med-name" placeholder="Название лекарства"/>
+    <div class="modal-row">
+      <input class="modal-input" id="med-dose" placeholder="Дозировка (напр: 1 таб.)" style="flex:1;margin-bottom:0"/>
+      <input class="modal-input" id="med-time" type="time" value="08:00" style="width:100px;margin-bottom:0;margin-left:8px"/>
+    </div>
+    <div style="margin-top:9px;margin-bottom:9px">
+      <div class="ob-lbl">Повтор</div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap" id="med-days">
+        <button class="ob-sel active" style="flex:0 0 auto;min-width:44px" onclick="this.classList.toggle('active')">Пн</button>
+        <button class="ob-sel active" style="flex:0 0 auto;min-width:44px" onclick="this.classList.toggle('active')">Вт</button>
+        <button class="ob-sel active" style="flex:0 0 auto;min-width:44px" onclick="this.classList.toggle('active')">Ср</button>
+        <button class="ob-sel active" style="flex:0 0 auto;min-width:44px" onclick="this.classList.toggle('active')">Чт</button>
+        <button class="ob-sel active" style="flex:0 0 auto;min-width:44px" onclick="this.classList.toggle('active')">Пт</button>
+        <button class="ob-sel active" style="flex:0 0 auto;min-width:44px" onclick="this.classList.toggle('active')">Сб</button>
+        <button class="ob-sel active" style="flex:0 0 auto;min-width:44px" onclick="this.classList.toggle('active')">Вс</button>
+      </div>
+    </div>
+    <div class="modal-btns"><button class="m-cancel" onclick="closeMedModal()">Отмена</button><button class="m-ok" onclick="saveMed()">Сохранить</button></div>
+  </div>
+</div>
+
+<!-- ONBOARDING -->
+<div class="ob hidden" id="ob">
+  <div class="ob-inner">
+    <div class="ob-prog" id="ob-prog"></div>
+
+    <!-- Step 0: Welcome + Goal -->
+    <div class="ob-step active" id="ob-0">
+      <div class="ob-ico" style="background:var(--green3)"><i class="ph ph-leaf" style="color:var(--green)"></i></div>
+      <div class="ob-title" id="ob-welcome">Привет!</div>
+      <div class="ob-sub">Давай настроим дневник здоровья — займёт 2 минуты.</div>
+      <div class="ob-body">
+        <div class="ob-field"><div class="ob-lbl">Как тебя зовут?</div><input class="ob-input" id="ob-name" type="text" placeholder="Имя" onkeydown="if(event.key==='Enter')this.blur()"/></div>
+        <div class="ob-lbl" style="margin-bottom:9px">Твоя цель</div>
+        <div class="ob-goal" onclick="pickGoal('lose_weight',this)"><div class="ob-goal-ico" style="background:var(--red3)"><i class="ph ph-trend-down" style="color:var(--red)"></i></div><div><div class="ob-goal-title">Сбросить вес</div><div class="ob-goal-sub">Убрать жир, особенно живот</div></div><div class="ob-goal-check"><i class="ph ph-check"></i></div></div>
+        <div class="ob-goal" onclick="pickGoal('build_muscle',this)"><div class="ob-goal-ico" style="background:var(--blue3)"><i class="ph ph-barbell" style="color:var(--blue)"></i></div><div><div class="ob-goal-title">Набрать мышцы</div><div class="ob-goal-sub">Сила, объём, рельеф</div></div><div class="ob-goal-check"><i class="ph ph-check"></i></div></div>
+        <div class="ob-goal" onclick="pickGoal('maintain',this)"><div class="ob-goal-ico" style="background:var(--green3)"><i class="ph ph-heartbeat" style="color:var(--green)"></i></div><div><div class="ob-goal-title">Поддержать форму</div><div class="ob-goal-sub">Здоровье и энергия</div></div><div class="ob-goal-check"><i class="ph ph-check"></i></div></div>
+      </div>
+      <div class="ob-footer"><button class="ob-btn" onclick="obNext()">Далее</button></div>
+    </div>
+
+    <!-- Step 1: Body data -->
+    <div class="ob-step" id="ob-1">
+      <div class="ob-ico" style="background:var(--blue3)"><i class="ph ph-scales" style="color:var(--blue)"></i></div>
+      <div class="ob-title">Твои данные</div>
+      <div class="ob-sub">Нужны для расчёта норм питания и дозировок витаминов.</div>
+      <div class="ob-body">
+        <div class="ob-field"><div class="ob-lbl">Пол</div><div style="display:flex;gap:8px"><button class="ob-sel" onclick="pickSex('male',this)">Мужской</button><button class="ob-sel" onclick="pickSex('female',this)">Женский</button></div></div>
+        <div class="ob-field"><div class="ob-lbl">Возраст</div><input class="ob-input" id="ob-age" type="number" placeholder="лет" min="10" max="100" onkeydown="if(event.key==='Enter')this.blur()"/></div>
+        <div class="ob-field"><div class="ob-lbl">Вес (кг)</div><input class="ob-input" id="ob-weight" type="number" placeholder="кг" min="30" max="300" step="0.5" onkeydown="if(event.key==='Enter')this.blur()"/></div>
+        <div class="ob-field"><div class="ob-lbl">Рост (см)</div><input class="ob-input" id="ob-height" type="number" placeholder="см" min="100" max="250" onkeydown="if(event.key==='Enter')this.blur()"/></div>
+      </div>
+      <div class="ob-footer"><button class="ob-btn" onclick="obNext()">Далее</button><button class="ob-btn sec" onclick="obBack()">Назад</button></div>
+    </div>
+
+    <!-- Step 2: Meal schedule -->
+    <div class="ob-step" id="ob-2">
+      <div class="ob-ico" style="background:var(--orange3)"><i class="ph ph-clock" style="color:var(--orange)"></i></div>
+      <div class="ob-title">График питания</div>
+      <div class="ob-sub">Когда завтракаешь? Составим расписание — ужин не позже 19:30, перерывы по 2.5–3 часа.</div>
+      <div class="ob-body">
+        <div class="ob-field">
+          <div class="ob-lbl">Время завтрака</div>
+          <input class="ob-input" id="ob-breakfast" type="time" value="08:00" oninput="recalcMealPreview()"/>
+        </div>
+        <div id="ob-meal-preview" style="background:var(--bg3);border-radius:13px;padding:13px;overflow:hidden"></div>
+        <div style="font-size:11px;color:var(--text3);margin-top:8px">Нажми на кружок чтобы убрать приём. Время можно поменять.</div>
+      </div>
+      <div class="ob-footer"><button class="ob-btn" onclick="obNext()">Далее</button><button class="ob-btn sec" onclick="obBack()">Назад</button></div>
+    </div>
+
+    <!-- Step 3: Vitamins -->
+    <div class="ob-step" id="ob-3">
+      <div class="ob-ico" style="background:var(--purple3)"><i class="ph ph-pill" style="color:var(--purple)"></i></div>
+      <div class="ob-title">Витамины</div>
+      <div class="ob-sub" id="ob-vit-sub">Рекомендуем исходя из твоих данных. Отметь что принимаешь или хочешь добавить.</div>
+      <div class="ob-body"><div id="ob-vit-list"></div></div>
+      <div class="ob-footer"><button class="ob-btn" onclick="finishOb()">Начать</button><button class="ob-btn sec" onclick="obBack()">Назад</button></div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ─── TG INIT ───
+const tg = window.Telegram?.WebApp;
+const TG_USER = tg?.initDataUnsafe?.user || {};
+const INIT_DATA = tg?.initData || '';
+const API = '__WEBAPP_URL__';  // injected by server
+if(tg){
+  tg.expand(); tg.ready();
+  tg.setHeaderColor('#09090f');
+  tg.setBackgroundColor('#09090f');
+  if(tg.requestFullscreen) tg.requestFullscreen();
+  if(tg.disableVerticalSwipes) tg.disableVerticalSwipes();
+  // Re-render tabbar when fullscreen state changes
+  tg.onEvent('fullscreenChanged', ()=>{
+    document.querySelector('.tabbar').style.display='flex';
+  });
+}
+
+// ─── CLOUD STORAGE ───
+// Uses Telegram CloudStorage (server-side, tied to TG account)
+// Falls back to localStorage for browser testing
+const CS = {
+  async get(key) {
+    return new Promise(resolve => {
+      if(tg?.CloudStorage?.getItem) {
+        tg.CloudStorage.getItem(key, (err, val) => resolve(val ? JSON.parse(val) : null));
+      } else {
+        const v = localStorage.getItem('yh_'+key);
+        resolve(v ? JSON.parse(v) : null);
+      }
+    });
+  },
+  async set(key, val) {
+    const str = JSON.stringify(val);
+    return new Promise(resolve => {
+      if(tg?.CloudStorage?.setItem) {
+        tg.CloudStorage.setItem(key, str, () => resolve());
+      } else {
+        localStorage.setItem('yh_'+key, str);
+        resolve();
+      }
+    });
+  }
+};
+
+// ─── STATE ───
+let profile = null; // { name, goal, sex, age, weight, height, schedule, vitamins, meds }
+let dayState = {}; // { meals:{}, vitamins:{}, water:0 }
+let weights = {};
+let allDays = {};
+
+const MONTHS = ['января','февраля','марта','апреля','мая','июня','июля','августа','сентября','октября','ноября','декабря'];
+const MONTHS_F = ['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
+const DAYS_S = ['Вс','Пн','Вт','Ср','Чт','Пт','Сб'];
+
+function dateKey(d){ return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
+function todayKey(){ return dateKey(new Date()); }
+
+async function loadAll(){
+  profile = await CS.get('profile');
+  const key = todayKey();
+  dayState = (await CS.get('day_'+key)) || { meals:{}, vitamins:{}, water:0 };
+  const rawWeights = (await CS.get('weights')) || [];
+  // Migrate old format {date: value} to array if needed
+  if(!Array.isArray(rawWeights)) {
+    weights = Object.entries(rawWeights).map(([date,value])=>({date,value:parseFloat(value)})).sort((a,b)=>b.date.localeCompare(a.date));
+    await saveWeights();
+  } else {
+    weights = rawWeights;
+  }
+  // Seed from profile if empty
+  if(weights.length===0 && profile?.weight){
+    weights = [{date: todayKey(), value: parseFloat(profile.weight), ts: Date.now()}];
+    await saveWeights();
+  }
+  // Load last 7 days for stats
+  for(let i=0;i<7;i++){
+    const d = new Date(); d.setDate(d.getDate()-i);
+    const k = dateKey(d);
+    allDays[k] = (await CS.get('day_'+k)) || {};
+  }
+}
+
+async function saveDayState(){
+  await CS.set('day_'+todayKey(), dayState);
+  allDays[todayKey()] = dayState;
+}
+async function pushScheduleToServer() {
+  if(!INIT_DATA) return;
+  try {
+    const sched = getMealSchedule().filter(m=>m.enabled);
+    const vits = getActiveVits().map(v=>({
+      id: v.id, name: v.name, time: getVitTime(v.id, profile), timingLabel: v.timingLabel
+    }));
+    const meds = (profile.meds||[]).map(m=>({name:m.name, dose:m.dose, time:m.time}));
+    await fetch(API + '/api/schedule', {
+      method:'POST',
+      headers:{'Content-Type':'application/json','X-Init-Data':INIT_DATA},
+      body: JSON.stringify({ uid: TG_USER.id||0, schedule: { meals: sched, vitamins: vits, meds } })
+    });
+  } catch(e) {
+    console.warn('Schedule push failed:', e);
+  }
+}
+
+async function saveProfile() {
+  // Сохраняем в память Телеграма
+  await CS.set('profile', profile);
+
+  // Если мы понимаем, кто этот пользователь (есть ID)
+  if(INIT_DATA || (TG_USER && TG_USER.id)) {
+    try {
+      // 1. Отправляем данные на твой сервер в базу SQLite
+      const response = await fetch(API + '/api/profile', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Init-Data': INIT_DATA
+        },
+        body: JSON.stringify({ 
+          uid: TG_USER.id || 0, 
+          profile: profile 
+        })
+      });
+
+      // 2. Если всё сохранилось успешно, просим бота обновить уведомления
+      if (response.ok) {
+        // Эта строчка отправляет невидимое сообщение боту, чтобы он перезагрузил таймеры
+        tg.sendData(JSON.stringify({action: 'reload_reminders'}));
+        tg.showAlert('Настройки сохранены! Бот обновит уведомления автоматически.');
+      }
+      
+    } catch(e) { 
+      console.warn('profile SQLite save failed:', e); 
+      tg.showAlert('Ошибка сохранения на сервере');
+    }
+  }
+}
+async function saveWeights(){ await CS.set('weights', weights); }
+
+// ─── MEAL SCHEDULE HELPERS ───
+function timeMins(str){ const [h,m]=(str||'08:00').split(':').map(Number); return h*60+m; }
+function minsTime(t){ const h=Math.floor(t/60)%24,m=t%60; return String(h).padStart(2,'0')+':'+String(m).padStart(2,'0'); }
+
+function buildDefaultSchedule(breakfastTime){
+  const bt = timeMins(breakfastTime||'08:00');
+  // Water: 30 min before breakfast
+  const water = bt - 30;
+  // Snack1: bt + 2.5h
+  const snack1 = bt + 150;
+  // Lunch: bt + 4.5h but max 14:30
+  const lunch = Math.min(bt+270, 14*60+30);
+  // Snack2: lunch + 2.5h but max 17:30
+  const snack2 = Math.min(lunch+150, 17*60+30);
+  // Dinner: snack2 + 1.5h, min 18:00, max 19:30
+  const dinner = Math.min(Math.max(snack2+90, 18*60), 19*60+30);
+
+  return [
+    { id:'water', name:'Вода', time:minsTime(water), enabled:true, icon:'ph-drop', color:'var(--blue)', bg:'var(--blue3)', isWater:true, waterAmount:0.25 },
+    { id:'breakfast', name:'Завтрак', time:minsTime(bt), enabled:true, icon:'ph-coffee', color:'var(--orange)', bg:'var(--orange3)' },
+    { id:'snack1', name:'Перекус 1', time:minsTime(snack1), enabled:true, icon:'ph-nut', color:'var(--green)', bg:'var(--green3)' },
+    { id:'lunch', name:'Обед', time:minsTime(lunch), enabled:true, icon:'ph-bowl-food', color:'var(--teal)', bg:'var(--teal3)' },
+    { id:'snack2', name:'Перекус 2', time:minsTime(snack2), enabled:true, icon:'ph-orange-slice', color:'var(--orange)', bg:'var(--orange3)' },
+    { id:'dinner', name:'Ужин', time:minsTime(dinner), enabled:true, icon:'ph-fork-knife', color:'var(--purple)', bg:'var(--purple3)' },
+  ];
+}
+
+function getMealSchedule(){
+  if(!profile) return buildDefaultSchedule('08:00');
+  return profile.schedule || buildDefaultSchedule('08:00');
+}
+
+// ─── VITAMINS DATA ───
+// Compatibility notes:
+// - Calcium + Iron: take separately (compete for absorption)
+// - Zinc + Iron: take separately
+// - Fat-soluble (A,D,E,K): take with food
+// - Vitamin C + B12: take at different times (C can reduce B12 absorption at very high doses)
+// - Magnesium + Calcium: OK together in normal doses
+const VITS_ALL = [
+  { id:'omega', name:'Омега-3', icon:'ph-drop-half', color:'var(--orange)', bg:'var(--orange3)', rec:'all',
+    desc:'Принимай с едой — жирорастворимый. Если капсулы 1000 мг — 2 в день, 500 мг — 4 в день. Снижает воспаление, поддерживает сердце и суставы.',
+    timing:'breakfast', timingLabel:'с завтраком', compat:[] },
+  { id:'vitd', name:'Витамин D3+K2', icon:'ph-sun', color:'var(--blue)', bg:'var(--blue3)', rec:'all',
+    desc:'1 капсула с завтраком. Жирорастворимый. K2 направляет кальций в кости. Критически важен осенью и зимой.',
+    timing:'breakfast', timingLabel:'с завтраком', compat:[] },
+  { id:'magnesium', name:'Магний B6', icon:'ph-moon-stars', color:'var(--purple)', bg:'var(--purple3)', rec:'all',
+    desc:'1–2 таблетки цитрата магния за час до сна. Улучшает сон и восстановление мышц. Эффект накопительный — через 2–3 недели.',
+    timing:'sleep', timingLabel:'за час до сна', compat:[] },
+  { id:'vitc', name:'Витамин C', icon:'ph-shield-plus', color:'var(--red)', bg:'var(--red3)', rec:'all',
+    desc:'1 таблетка 500 мг с завтраком через день (не ежедневно). В сезон простуд можно ежедневно 2 недели.',
+    timing:'breakfast', timingLabel:'с завтраком, через день', compat:[], warn:'Принимай отдельно от витамина B12 (с разницей 2+ часа при дозах выше 1000 мг).' },
+  { id:'zinc', name:'Цинк', icon:'ph-star-four', color:'var(--teal)', bg:'var(--teal3)', rec:'sport',
+    desc:'1 таблетка (15–25 мг) с обедом. Никогда натощак — тошнота. Пиколинат цинка усваивается лучше.',
+    timing:'lunch', timingLabel:'с обедом', compat:[], warn:'Не принимай в одно время с железом — конкурируют за усвоение.' },
+  { id:'creatine', name:'Креатин', icon:'ph-barbell', color:'var(--green)', bg:'var(--green3)', rec:'sport',
+    desc:'5 г порошка в воде или соке ежедневно, в любое время. Загрузка не нужна. 2 месяца приём, 1 месяц перерыв.',
+    timing:'breakfast', timingLabel:'в любое время', compat:[] },
+  { id:'vitb12', name:'Витамин B12', icon:'ph-lightning', color:'var(--orange)', bg:'var(--orange3)', rec:'over40',
+    desc:'1 таблетка 500 мкг с завтраком. Сублингвальная (под язык) усваивается лучше обычной.',
+    timing:'breakfast', timingLabel:'с завтраком', compat:[], warn:'Принимай отдельно от витамина C при высоких дозах.' },
+  { id:'iron', name:'Железо', icon:'ph-heartbeat', color:'var(--red)', bg:'var(--red3)', rec:'female',
+    desc:'1 таблетка натощак за 30 мин до завтрака. Запивай водой, не молоком. Может тёмно окрашивать стул — это нормально.',
+    timing:'prbreakfast', timingLabel:'за 30 мин до завтрака', compat:[], warn:'Не принимай одновременно с кальцием и цинком — конкурируют за усвоение.' },
+  { id:'calcium', name:'Кальций', icon:'ph-bone', color:'var(--blue)', bg:'var(--blue3)', rec:'over40',
+    desc:'1 таблетка (500 мг) с обедом. Карбонат кальция — только с едой. Не принимай в одно время с железом.',
+    timing:'lunch', timingLabel:'с обедом', compat:[], warn:'Не принимай одновременно с железом — снижают усвоение друг друга.' },
+  { id:'probiotics', name:'Пробиотики', icon:'ph-shield-checkered', color:'var(--green)', bg:'var(--green3)', rec:'all',
+    desc:'1 капсула за 30 мин до завтрака. Хранить в холодильнике если указано. Курс 1–3 месяца.',
+    timing:'prbreakfast', timingLabel:'за 30 мин до завтрака', compat:[] },
+];
+
+function getVitDose(id, p){
+  const w = p?.weight||75, age = p?.age||30, sex = p?.sex||'male', goal = p?.goal||'maintain';
+  const isSport = goal==='build_muscle'||goal==='lose_weight';
+  const d = {
+    omega: isSport?'2–3 г/день':'1–2 г/день',
+    vitd: age>50?'4000–5000 МЕ/день':age>40?'3000–4000 МЕ/день':'2000–3000 МЕ/день',
+    magnesium: sex==='female'?'310–320 мг/день':w>90?'420 мг/день':'400 мг/день',
+    vitc: '500 мг/день (через день)',
+    zinc: isSport?'25 мг/день':sex==='male'?'11 мг/день':'8 мг/день',
+    creatine: w>90?'5–7 г/день':'5 г/день',
+    vitb12: age>50?'1000 мкг/день':'500 мкг/день',
+    iron: sex==='female'?age<50?'18 мг/день':'8 мг/день':'8 мг/день',
+    calcium: age>50?'1200 мг/день':'1000 мг/день',
+    probiotics: '1–10 млрд КОЕ/день',
+  };
+  return d[id]||'—';
+}
+
+function isVitRec(v, p){
+  if(v.rec==='all') return true;
+  if(v.rec==='sport' && (p?.goal==='build_muscle'||p?.goal==='lose_weight')) return true;
+  if(v.rec==='female' && p?.sex==='female') return true;
+  if(v.rec==='over40' && p?.age>=40) return true;
+  return false;
+}
+
+function getVitTime(id, p){
+  // Check custom time first
+  if(p?.vitTimes?.[id]) return p.vitTimes[id];
+  const sched = getMealSchedule();
+  const bf = sched.find(m=>m.id==='breakfast')?.time || '08:00';
+  const ln = sched.find(m=>m.id==='lunch')?.time || '13:00';
+  const bt = timeMins(bf);
+  const times = {
+    omega: bf, vitd: bf, vitc: bf, vitb12: bf, creatine: bf,
+    magnesium: '22:00',
+    zinc: ln, calcium: ln,
+    iron: minsTime(bt-30),
+    probiotics: minsTime(bt-30),
+  };
+  return times[id] || bf;
+}
+
+// ─── MEAL SUGGESTIONS (rotating by day of year) ───
+const MEAL_SUGGESTIONS = {
+  lose_weight: {
+    breakfast: [
+      { name:'Яичница с овощами', desc:'2–3 яйца + огурцы + помидоры + шампиньоны. Масло минимум.', macro:'~300 ккал · 22г белка' },
+      { name:'Омлет с брокколи', desc:'3 яйца + 100г брокколи + щепотка сыра. Высокий белок, низкие углеводы.', macro:'~280 ккал · 24г белка' },
+      { name:'Творог с ягодами', desc:'200г творога 5% + горсть замороженных ягод + семена чиа. Без сахара.', macro:'~260 ккал · 30г белка' },
+      { name:'Варёные яйца + авокадо', desc:'3 варёных яйца + половина авокадо + огурцы. Насыщает на 4–5 часов.', macro:'~320 ккал · 21г белка' },
+      { name:'Греческий йогурт', desc:'200г греческого йогурта без сахара + орехи горсть + ягоды.', macro:'~280 ккал · 20г белка' },
+    ],
+    lunch: [
+      { name:'Куриная грудка + гречка', desc:'200г варёной грудки + 150г гречки + свежие овощи. Классика.', macro:'~450 ккал · 45г белка' },
+      { name:'Тунец с картошкой', desc:'Банка тунца в соку + 2 отварных картошки + огурцы.', macro:'~380 ккал · 35г белка' },
+      { name:'Индейка с рисом', desc:'180г индейки + 120г риса + тушёная брокколи.', macro:'~420 ккал · 40г белка' },
+      { name:'Лосось + овощи', desc:'150г лосося запечённого + брокколи + болгарский перец.', macro:'~380 ккал · 34г белка' },
+      { name:'Куриный суп', desc:'Бульон + куриная грудка + овощи. Лёгкий и сытный.', macro:'~280 ккал · 28г белка' },
+    ],
+    dinner: [
+      { name:'Рыба + брокколи', desc:'150г скумбрии или минтая + 200г брокколи на пару. До 19:30.', macro:'~320 ккал · 30г белка' },
+      { name:'Куриное бедро + кабачок', desc:'150г бедра запечённого без кожи + тушёный кабачок.', macro:'~310 ккал · 28г белка' },
+      { name:'Творог перед сном', desc:'200г творога 5% — казеиновый белок на всю ночь. Можно с корицей.', macro:'~220 ккал · 30г белка' },
+      { name:'Омлет с овощами', desc:'3 яйца + шпинат + помидор. Лёгкий вечерний вариант.', macro:'~260 ккал · 22г белка' },
+      { name:'Тушёная курица с овощами', desc:'150г куриного бедра + перец + лук + томаты. Тушить без масла.', macro:'~290 ккал · 28г белка' },
+    ],
+    snack: [
+      { name:'Творог + ягоды', desc:'150г творога + ягоды + 1 ст.л. чиа.', macro:'~180 ккал · 20г белка' },
+      { name:'Орехи + яблоко', desc:'Горсть миндаля (20г) + яблоко.', macro:'~200 ккал · 5г белка' },
+      { name:'Варёное яйцо + хлебцы', desc:'2 варёных яйца + 3–4 ржаных хлебца.', macro:'~190 ккал · 14г белка' },
+      { name:'Кефир + чиа', desc:'250г кефира + 1 ст.л. семян чиа. Приготовь с вечера.', macro:'~160 ккал · 10г белка' },
+      { name:'Греческий йогурт', desc:'150г греческого йогурта без сахара. Можно с орехами.', macro:'~150 ккал · 15г белка' },
+    ],
+  },
+  build_muscle: {
+    breakfast: [
+      { name:'Овсянка с яйцами', desc:'100г овсянки + 3 яйца + банан. Углеводы + белок перед днём.', macro:'~520 ккал · 30г белка' },
+      { name:'Яичница + гречка', desc:'3 яйца + 150г гречки + овощи. Мощный старт дня.', macro:'~480 ккал · 28г белка' },
+      { name:'Творог с бананом', desc:'200г творога + банан + столовая ложка мёда + орехи.', macro:'~450 ккал · 30г белка' },
+      { name:'Омлет + цельнозерновой хлеб', desc:'4 яйца + 2 куска цельнозернового + помидор.', macro:'~500 ккал · 34г белка' },
+      { name:'Протеиновая каша', desc:'Овсянка + 1 мерная ложка протеина + молоко + ягоды.', macro:'~480 ккал · 40г белка' },
+    ],
+    lunch: [
+      { name:'Курица + рис + овощи', desc:'250г куриной грудки + 200г риса + свежие овощи. Основной приём.', macro:'~620 ккал · 55г белка' },
+      { name:'Говядина с гречкой', desc:'200г говядины + 180г гречки + брокколи.', macro:'~580 ккал · 50г белка' },
+      { name:'Тунец + макароны', desc:'2 банки тунца + 150г макарон твёрдых + помидоры.', macro:'~560 ккал · 52г белка' },
+      { name:'Индейка + картошка', desc:'220г индейки + 250г отварной картошки + овощи.', macro:'~570 ккал · 48г белка' },
+      { name:'Лосось + киноа', desc:'180г лосося + 150г киноа + шпинат.', macro:'~580 ккал · 46г белка' },
+    ],
+    dinner: [
+      { name:'Куриное бедро + рис', desc:'200г куриного бедра + 150г риса. Углеводы допустимы при активности.', macro:'~500 ккал · 40г белка' },
+      { name:'Говядина + овощи', desc:'180г нежирной говядины + тушёные овощи + немного риса.', macro:'~480 ккал · 42г белка' },
+      { name:'Рыба + гречка', desc:'200г рыбы + 150г гречки + брокколи.', macro:'~450 ккал · 40г белка' },
+      { name:'Творог перед сном', desc:'250г творога 5% — обязательно при наборе. Казеин на ночь.', macro:'~280 ккал · 38г белка' },
+      { name:'Омлет с тунцом', desc:'4 яйца + 1 банка тунца + помидор. Быстро и много белка.', macro:'~420 ккал · 45г белка' },
+    ],
+    snack: [
+      { name:'Протеиновый коктейль + банан', desc:'1 мерная ложка протеина + 300мл молока + банан.', macro:'~380 ккал · 35г белка' },
+      { name:'Творог с орехами', desc:'200г творога + горсть грецких орехов + мёд.', macro:'~350 ккал · 25г белка' },
+      { name:'Варёные яйца + хлеб', desc:'3 яйца + 2 куска цельнозернового хлеба.', macro:'~310 ккал · 22г белка' },
+      { name:'Кефир + хлебцы', desc:'250г кефира + 5 хлебцев с твёрдым сыром.', macro:'~290 ккал · 18г белка' },
+      { name:'Bombar батончик', desc:'Без сахара, ~20г белка. Удобно в дороге. Не чаще 1 раза в день.', macro:'~220 ккал · 20г белка' },
+    ],
+  },
+  maintain: {
+    breakfast: [
+      { name:'Яичница с овощами', desc:'2–3 яйца + шампиньоны + огурцы + помидоры.', macro:'~300 ккал · 22г белка' },
+      { name:'Овсянка с фруктами', desc:'80г овсянки + яблоко + корица + горсть орехов.', macro:'~360 ккал · 10г белка' },
+      { name:'Творог + ягоды', desc:'200г творога 5% + ягоды + семена чиа. Лёгкий и питательный.', macro:'~260 ккал · 28г белка' },
+      { name:'Омлет с сыром', desc:'3 яйца + 30г сыра + помидор. Классический завтрак.', macro:'~320 ккал · 24г белка' },
+      { name:'Греческий йогурт + мюсли', desc:'150г йогурта + 40г мюсли без сахара + ягоды.', macro:'~310 ккал · 14г белка' },
+    ],
+    lunch: [
+      { name:'Куриная грудка + гречка', desc:'180г грудки + 150г гречки + свежие овощи.', macro:'~430 ккал · 42г белка' },
+      { name:'Рыба + рис', desc:'150г рыбы + 150г риса + брокколи. Лёгкий сбалансированный обед.', macro:'~400 ккал · 32г белка' },
+      { name:'Чечевичный суп', desc:'Чечевица + морковь + лук + специи. Белок + клетчатка.', macro:'~320 ккал · 18г белка' },
+      { name:'Индейка с макаронами', desc:'160г индейки + 130г макарон из твёрдых сортов + томаты.', macro:'~440 ккал · 36г белка' },
+      { name:'Тунец + картошка + салат', desc:'1 банка тунца + 2 картошки + огурцы + помидоры.', macro:'~380 ккал · 30г белка' },
+    ],
+    dinner: [
+      { name:'Рыба + овощи', desc:'150г рыбы + тушёные овощи. Лёгкий ужин до 19:30.', macro:'~290 ккал · 28г белка' },
+      { name:'Куриное бедро + брокколи', desc:'150г бедра без кожи + 200г брокколи. Просто и сытно.', macro:'~300 ккал · 26г белка' },
+      { name:'Омлет + овощи', desc:'3 яйца + кабачок + шпинат. Лёгкий вечерний вариант.', macro:'~250 ккал · 20г белка' },
+      { name:'Творог', desc:'200г творога 5%. Идеальный вариант если ужин поздно.', macro:'~200 ккал · 28г белка' },
+      { name:'Запечённая курица', desc:'150г куриного бедра запечённого + болгарский перец + лук.', macro:'~310 ккал · 28г белка' },
+    ],
+    snack: [
+      { name:'Орехи + фрукт', desc:'Горсть миндаля + яблоко или груша.', macro:'~200 ккал · 5г белка' },
+      { name:'Творог + ягоды', desc:'150г творога + ягоды + 1 ст.л. чиа.', macro:'~180 ккал · 20г белка' },
+      { name:'Кефир', desc:'250г кефира. Быстро и полезно.', macro:'~130 ккал · 8г белка' },
+      { name:'Хлебцы + яйцо', desc:'3–4 ржаных хлебца + 2 варёных яйца.', macro:'~190 ккал · 14г белка' },
+      { name:'Греческий йогурт', desc:'150г без сахара + орехи.', macro:'~160 ккал · 15г белка' },
+    ],
+  },
+};
+
+function getDailySuggestions(mealType){
+  const goal = profile?.goal || 'maintain';
+  const cat = MEAL_SUGGESTIONS[goal]?.[mealType] || [];
+  if(!cat.length) return [];
+  // Rotate by day of year
+  const d = new Date();
+  const doy = Math.floor((d - new Date(d.getFullYear(),0,0)) / 86400000);
+  const offset = {breakfast:0, lunch:1, dinner:2, snack:3, snack1:3, snack2:4}[mealType]||0;
+  const n = Math.min(3, cat.length);
+  const result = [];
+  for(let i=0;i<n;i++) result.push(cat[(doy+i+offset)%cat.length]);
+  return result;
+}
+
+// ─── RINGS ───
+function setRing(id, pct){
+  const el = document.getElementById(id);
+  if(!el) return;
+  const c = 163.4;
+  el.style.strokeDashoffset = c - (pct/100)*c;
+}
+
+function updateRings(){
+  const sched = getMealSchedule().filter(m=>m.enabled);
+  const vits = profile?.vitamins ? VITS_ALL.filter(v=>profile.vitamins.includes(v.id)) : [];
+  const wGoal = 2.5;
+
+  const mDone = sched.filter(m=>dayState.meals?.[m.id]).length;
+  const mTotal = sched.length;
+  const w = dayState.water||0;
+  const vDone = vits.filter(v=>dayState.vitamins?.[v.id]).length;
+  const vTotal = vits.length;
+
+  const fp = mTotal?Math.round(mDone/mTotal*100):0;
+  const wp = Math.round(Math.min(w/wGoal,1)*100);
+  const vp = vTotal?Math.round(vDone/vTotal*100):0;
+
+  setRing('rf',fp); document.getElementById('rf-v').textContent=fp+'%'; document.getElementById('rf-s').textContent=mDone+' из '+mTotal;
+  setRing('rw',wp); document.getElementById('rw-v').textContent=wp+'%'; document.getElementById('rw-s').textContent=w.toFixed(1)+' л';
+  setRing('rv',vp); document.getElementById('rv-v').textContent=vp+'%'; document.getElementById('rv-s').textContent=vDone+' из '+vTotal;
+}
+
+// ─── WATER ───
+function renderBottles(){
+  const el = document.getElementById('bottles'); if(!el) return;
+  const w = dayState.water||0, goal=2.5, bs=0.5, cnt=5;
+  let h='';
+  for(let i=0;i<cnt;i++){
+    const full=w>=(i+1)*bs, half=!full&&w>=i*bs+bs/2;
+    h+=`<div class="bot ${full?'full':half?'half':''}" onclick="toggleBot(${i})"><i class="ph ph-drop"></i></div>`;
+  }
+  el.innerHTML=h;
+  const pct=Math.min(100,Math.round(w/goal*100));
+  document.getElementById('w-fill').style.width=pct+'%';
+  const ws=w===0?'0':w.toFixed(1).replace(/\.0$/,'');
+  document.getElementById('w-amt').textContent=ws+' / '+goal+' л';
+  updateRings();
+}
+
+async function toggleBot(i){
+  const bs=0.5, thr=(i+1)*bs, cur=dayState.water||0;
+  dayState.water = Math.abs(cur-thr)<0.01?i*bs:thr;
+  if(dayState.water<0) dayState.water=0;
+  await saveDayState();
+  renderBottles();
+}
+
+// ─── MEALS ───
+function renderMeals(){
+  const el=document.getElementById('meals-list'); if(!el) return;
+  const sched=getMealSchedule().filter(m=>m.enabled);
+  el.innerHTML=sched.map(m=>{
+    const done=!!(dayState.meals?.[m.id]);
+    const sugs = ['snack1','snack2'].includes(m.id)?getDailySuggestions('snack'):getDailySuggestions(m.id);
+    return `<div class="meal-card ${done?'done':''}" id="mc-${m.id}">
+      <div class="meal-hdr" onclick="toggleMealDetail('${m.id}')">
+        <div class="meal-ico" style="background:${m.bg}"><i class="ph ${m.icon}" style="color:${m.color}"></i></div>
+        <div style="flex:1;min-width:0"><div class="meal-name">${m.name}</div><div class="meal-time-lbl">${m.time}</div></div>
+        <div class="meal-check ${done?'on':''}" id="mch-${m.id}" onclick="event.stopPropagation();toggleMeal('${m.id}')"><i class="ph ph-check"></i></div>
+      </div>
+      <div class="meal-detail" id="md-${m.id}">
+        ${m.isWater?`<div class="sug"><div class="sug-name">Стакан воды</div><div class="sug-desc">250–300 мл сразу после подъёма. Запускает метаболизм и пищеварение.</div></div>`:
+        sugs.map(s=>`<div class="sug"><div class="sug-name">${s.name}</div><div class="sug-desc">${s.desc}</div>${s.macro?`<div class="sug-desc" style="color:var(--text3);margin-top:3px">${s.macro}</div>`:''}</div>`).join('')}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+async function toggleMeal(id){
+  if(!dayState.meals) dayState.meals={};
+  const m=getMealSchedule().find(x=>x.id===id);
+  const was=!!dayState.meals[id];
+  dayState.meals[id]=!was;
+  if(m?.isWater&&m?.waterAmount){
+    dayState.water=(dayState.water||0)+(was?-m.waterAmount:m.waterAmount);
+    if(dayState.water<0) dayState.water=0;
+    renderBottles();
+  }
+  await saveDayState();
+  document.getElementById('mc-'+id)?.classList.toggle('done',!!dayState.meals[id]);
+  document.getElementById('mch-'+id)?.classList.toggle('on',!!dayState.meals[id]);
+  updateRings();
+}
+
+function toggleMealDetail(id){ document.getElementById('md-'+id)?.classList.toggle('open'); }
+
+// ─── VITAMINS ───
+function getActiveVits(){
+  if(!profile?.vitamins?.length) return [];
+  const hidden = profile?.vitHidden||[];
+  return VITS_ALL.filter(v=>profile.vitamins.includes(v.id) && !hidden.includes(v.id));
+}
+
+function renderVits(){
+  const el=document.getElementById('vits-list'); if(!el) return;
+  const vits=getActiveVits();
+  if(!vits.length){ el.innerHTML='<div style="font-size:14px;color:var(--text3);padding:8px 0">Витамины не выбраны. Настрой в профиле.</div>'; return; }
+  el.innerHTML=vits.map(v=>{
+    const done=!!(dayState.vitamins?.[v.id]);
+    const t=getVitTime(v.id,profile);
+    const dose=getVitDose(v.id,profile);
+    return `<div class="vit-card ${done?'done':''}" id="vc-${v.id}">
+      <div class="vit-hdr" onclick="toggleVitDetail('${v.id}')">
+        <div class="vit-dot" style="background:${v.bg}"><i class="ph ${v.icon}" style="color:${v.color}"></i></div>
+        <div style="flex:1;min-width:0">
+          <div class="vit-name">${v.name}</div>
+          <div class="vit-meta"><span class="vit-time-badge" style="color:${v.color}">${t}</span><span>${v.timingLabel}</span></div>
+        </div>
+        <div class="vit-check ${done?'on':''}" id="vch-${v.id}" onclick="event.stopPropagation();toggleVit('${v.id}')"><i class="ph ph-check"></i></div>
+      </div>
+      <div class="vit-detail" id="vd-${v.id}">
+        <div class="vit-chips"><div class="vit-chip"><div class="chip-lbl">Доза</div><div class="chip-val">${dose}</div></div><div class="vit-chip"><div class="chip-lbl">Время</div><div class="chip-val" style="color:${v.color}">${t}</div></div></div>
+        <div class="vit-desc">${v.desc}</div>
+        ${v.warn?`<div class="vit-warn"><i class="ph ph-warning" style="flex-shrink:0;margin-top:1px"></i>${v.warn}</div>`:''}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+async function toggleVit(id){
+  if(!dayState.vitamins) dayState.vitamins={};
+  dayState.vitamins[id]=!dayState.vitamins[id];
+  await saveDayState();
+  document.getElementById('vc-'+id)?.classList.toggle('done',!!dayState.vitamins[id]);
+  document.getElementById('vch-'+id)?.classList.toggle('on',!!dayState.vitamins[id]);
+  updateRings();
+}
+
+function toggleVitDetail(id){ document.getElementById('vd-'+id)?.classList.toggle('open'); }
+
+// ─── FOOD SCREEN ───
+function renderFood(){
+  const el=document.getElementById('food-content'); if(!el) return;
+  const goal=profile?.goal||'maintain';
+  const w=profile?.weight||75, age=profile?.age||30, sex=profile?.sex||'male';
+  const bmr=sex==='male'?10*w+6.25*(profile?.height||175)-5*age+5:10*w+6.25*(profile?.height||175)-5*age-161;
+  const tdee=Math.round(bmr*1.375);
+  const prot=goal==='build_muscle'?Math.round(w*2.3):goal==='lose_weight'?Math.round(w*2.0):Math.round(w*1.8);
+  const tCal=goal==='build_muscle'?tdee+250:goal==='lose_weight'?tdee-400:tdee;
+  const fat=Math.round(tCal*.25/9), carb=Math.round((tCal-prot*4-fat*9)/4);
+  const goalColors={lose_weight:'var(--red)',build_muscle:'var(--blue)',maintain:'var(--green)'};
+  const goalTitles={lose_weight:'Сбросить вес',build_muscle:'Набрать мышцы',maintain:'Поддержать форму'};
+  const col=goalColors[goal]||'var(--green)';
+
+  let h=`<div style="background:rgba(255,255,255,.04);border:.5px solid var(--border);border-radius:var(--r);padding:14px;margin-bottom:12px">
+    <div style="font-size:14px;font-weight:700;color:${col};margin-bottom:10px"><i class="ph ph-target"></i> ${goalTitles[goal]} — твои нормы</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:7px">
+      <div style="background:rgba(0,0,0,.25);border-radius:10px;padding:10px;text-align:center"><div style="font-size:10px;color:var(--text3);margin-bottom:3px">КАЛОРИИ</div><div style="font-size:22px;font-weight:800;color:${col}">${tCal}</div><div style="font-size:10px;color:var(--text3)">ккал/день</div></div>
+      <div style="background:rgba(0,0,0,.25);border-radius:10px;padding:10px;text-align:center"><div style="font-size:10px;color:var(--text3);margin-bottom:3px">БЕЛОК</div><div style="font-size:22px;font-weight:800;color:var(--blue)">${prot}</div><div style="font-size:10px;color:var(--text3)">г/день</div></div>
+      <div style="background:rgba(0,0,0,.25);border-radius:10px;padding:10px;text-align:center"><div style="font-size:10px;color:var(--text3);margin-bottom:3px">ЖИРЫ</div><div style="font-size:22px;font-weight:800;color:var(--orange)">${fat}</div><div style="font-size:10px;color:var(--text3)">г/день</div></div>
+      <div style="background:rgba(0,0,0,.25);border-radius:10px;padding:10px;text-align:center"><div style="font-size:10px;color:var(--text3);margin-bottom:3px">УГЛЕВОДЫ</div><div style="font-size:22px;font-weight:800;color:var(--purple)">${carb}</div><div style="font-size:10px;color:var(--text3)">г/день</div></div>
+    </div>
+    <div style="font-size:12px;color:var(--text3);margin-top:10px;background:rgba(10,132,255,0.07);border-radius:8px;padding:8px 10px">
+      <div style="font-weight:600;color:var(--blue);margin-bottom:4px">Как набрать ${prot}г белка:</div>
+      <div style="display:flex;flex-direction:column;gap:3px">
+        <span>→ ${Math.round(prot/13)} яиц (13г белка в 1 яйце)</span>
+        <span>→ ${Math.round(prot/.31)}г куриной грудки (31г/100г)</span>
+        <span>→ ${Math.round(prot/.18)}г творога 5% (18г/100г)</span>
+        <span>→ ${Math.round(prot/.24)}г индейки (24г/100г)</span>
+      </div>
+    </div>
+  </div>`;
+
+  const mealTypes=[
+    {id:'breakfast',name:'Завтрак',icon:'ph-coffee',color:'var(--orange)',bg:'var(--orange3)'},
+    {id:'lunch',name:'Обед',icon:'ph-bowl-food',color:'var(--teal)',bg:'var(--teal3)'},
+    {id:'dinner',name:'Ужин',icon:'ph-fork-knife',color:'var(--purple)',bg:'var(--purple3)'},
+    {id:'snack',name:'Перекус',icon:'ph-nut',color:'var(--green)',bg:'var(--green3)'},
+  ];
+
+  mealTypes.forEach(mt=>{
+    const sugs=getDailySuggestions(mt.id);
+    h+=`<div class="food-item" id="fi-${mt.id}">
+      <div class="food-hdr" onclick="toggleFood('${mt.id}')">
+        <div class="food-ico" style="background:${mt.bg}"><i class="ph ${mt.icon}" style="color:${mt.color}"></i></div>
+        <div><div class="food-name">${mt.name}</div><div class="food-sub">3 варианта на сегодня</div></div>
+        <i class="ph ph-caret-right food-arrow" id="fa-${mt.id}"></i>
+      </div>
+      <div class="food-detail" id="fd-${mt.id}">
+        ${sugs.map(s=>`<div class="dish"><div class="dish-name">${s.name}</div><div class="dish-desc">${s.desc}</div>${s.macro?`<div class="dish-macro">${s.macro}</div>`:''}</div>`).join('')}
+      </div>
+    </div>`;
+  });
+
+  // Vitamins reference
+  h+='<div class="sec">Справочник витаминов</div>';
+  VITS_ALL.forEach(v=>{
+    const dose=getVitDose(v.id,profile);
+    h+=`<div class="food-item" id="fi-vr-${v.id}">
+      <div class="food-hdr" onclick="toggleFood('vr-${v.id}')">
+        <div class="food-ico" style="background:${v.bg}"><i class="ph ${v.icon}" style="color:${v.color}"></i></div>
+        <div><div class="food-name">${v.name}</div><div class="food-sub">${dose}</div></div>
+        <i class="ph ph-caret-right food-arrow" id="fa-vr-${v.id}"></i>
+      </div>
+      <div class="food-detail" id="fd-vr-${v.id}">
+        <div class="dish"><div class="dish-name">Доза</div><div class="dish-desc" style="color:${v.color};font-weight:600">${dose}</div></div>
+        <div class="dish"><div class="dish-name">Как принимать</div><div class="dish-desc">${v.desc}</div></div>
+        ${v.warn?`<div class="dish"><div class="dish-name" style="color:var(--orange)">Совместимость</div><div class="dish-desc" style="color:var(--orange)">${v.warn}</div></div>`:''}
+      </div>
+    </div>`;
+  });
+
+  el.innerHTML=h;
+}
+
+function toggleFood(id){ document.getElementById('fd-'+id)?.classList.toggle('open'); document.getElementById('fa-'+id)?.classList.toggle('open'); }
+
+// ─── STATS ───
+function renderStats(){
+  const now=new Date();
+  document.getElementById('stats-month').textContent=MONTHS_F[now.getMonth()]+' '+now.getFullYear();
+  // weights is now array of {date, value, ts}
+  const we = Array.isArray(weights) ? weights : [];
+  if(we.length){
+    document.getElementById('st-w').textContent=we[0].value+' кг';
+    document.getElementById('st-w-s').textContent='последний замер';
+  } else {
+    document.getElementById('st-w').textContent='—';
+    document.getElementById('st-w-s').textContent='не записан';
+  }
+  renderWeightChart(we);
+  renderWeightHistory(we);
+  const sched=getMealSchedule().filter(m=>m.enabled);
+  const vits=getActiveVits();
+  const dayLbls=[],wdata=[],fdata=[];
+  let act=0,totW=0,totV=0,vDays=0;
+  for(let i=6;i>=0;i--){
+    const d=new Date(); d.setDate(d.getDate()-i);
+    const k=dateKey(d); dayLbls.push(DAYS_S[d.getDay()]);
+    const dd=allDays[k]||{};
+    const w=dd.water||0, md=sched.filter(m=>dd.meals?.[m.id]).length, vd=vits.filter(v=>dd.vitamins?.[v.id]).length;
+    wdata.push(w); fdata.push(md); totW+=w;
+    if(md>0||w>0) act++;
+    if(vits.length>0){ totV+=vd/vits.length*100; vDays++; }
+  }
+  document.getElementById('st-d').textContent=act;
+  document.getElementById('st-wt').textContent=(totW/7).toFixed(1);
+  document.getElementById('st-v').textContent=vDays>0?Math.round(totV/vDays)+'%':'0%';
+  const el=document.getElementById('streak-num'); if(el){
+    let streak=0;
+    const today=new Date(); today.setHours(0,0,0,0);
+    for(let i=0;i<365;i++){
+      const d=new Date(today); d.setDate(today.getDate()-i);
+      const dd=allDays[dateKey(d)]||{};
+      if((dd.water||0)>0||sched.some(m=>dd.meals?.[m.id])) streak++;
+      else if(i>0) break;
+    }
+    el.textContent=streak+(streak===1?' день':streak<5?' дня':' дней');
+  }
+  renderBars('bc-w',wdata,'#0a84ff',dayLbls);
+  renderBars('bc-f',fdata,'#2fd158',dayLbls);
+  // Don't pre-fill weight input — user should enter fresh measurement
+}
+
+function renderBars(id,data,color,lbls){
+  const el=document.getElementById(id); if(!el) return;
+  const mx=Math.max(...data,.1);
+  el.innerHTML=data.map((v,i)=>`<div class="bar-col"><div class="bar" style="height:${Math.round(v/mx*58)}px;background:${color};opacity:${i===data.length-1?1:.4}"></div><div class="bar-d">${lbls[i]}</div></div>`).join('');
+}
+
+function renderWeightChart(we){
+  const el = document.getElementById('w-chart'); if(!el) return;
+  // we is array of {date, value, ts} newest first — reverse for chart (oldest first)
+  const entries = we.slice(0, 14).reverse();
+  if(entries.length < 2){ el.innerHTML='<div style="font-size:12px;color:var(--text3)">Добавь хотя бы 2 записи для графика</div>'; return; }
+  const vals = entries.map(e=>parseFloat(e.value));
+  const dates = entries.map(e=>{ const d=new Date(e.date); return d.getDate()+' '+MONTHS[d.getMonth()].slice(0,3); });
+  const min = Math.floor(Math.min(...vals)-1), max = Math.ceil(Math.max(...vals)+1);
+  const range = max-min||1;
+  const W=300, H=80, pad=8;
+  const pts = vals.map((v,i)=>{
+    const x = pad + (i/(vals.length-1))*(W-2*pad);
+    const y = H-pad - ((v-min)/range)*(H-2*pad);
+    return `${x},${y}`;
+  }).join(' ');
+  const firstDate = dates[0], lastDate = dates[dates.length-1];
+  const firstVal = vals[0], lastVal = vals[vals.length-1];
+  const diff = (lastVal-firstVal).toFixed(1);
+  const diffColor = diff<0?'var(--green)':diff>0?'var(--red)':'var(--text3)';
+  el.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+    <div style="font-size:11px;color:var(--text3)">${firstDate} → ${lastDate}</div>
+    <div style="font-size:13px;font-weight:700;color:${diffColor}">${diff>0?'+':''}${diff} кг</div>
+  </div>
+  <svg width="100%" viewBox="0 0 ${W} ${H}" style="overflow:visible">
+    <polyline points="${pts}" fill="none" stroke="var(--blue)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    ${vals.map((v,i)=>{
+      const x=pad+(i/(vals.length-1))*(W-2*pad), y=H-pad-((v-min)/range)*(H-2*pad);
+      return `<circle cx="${x}" cy="${y}" r="3" fill="var(--blue)"/>`;
+    }).join('')}
+  </svg>
+  <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--text3);margin-top:3px"><span>${firstDate}</span><span>${lastDate}</span></div>`;
+}
+
+function renderWeightHistory(we){
+  const el = document.getElementById('w-hist'); if(!el) return;
+  if(!we.length){ el.innerHTML='<div style="font-size:12px;color:var(--text3)">Записей пока нет. Добавь первый замер выше.</div>'; return; }
+  el.innerHTML = '<div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:7px">История</div>'+
+    we.slice(0,20).map((entry,i)=>{
+      const d=new Date(entry.date);
+      const prev = we[i+1];
+      const diff = prev ? (entry.value - prev.value).toFixed(1) : null;
+      const diffColor = diff===null?'':diff<0?'var(--green)':diff>0?'var(--red)':'var(--text3)';
+      const diffStr = diff===null?'':(diff>0?'+':'')+diff+' кг';
+      return `<div style="display:flex;align-items:center;gap:9px;padding:8px 0;border-bottom:.5px solid var(--border)">
+        <span style="font-size:13px;color:var(--text2);flex:1">${d.getDate()} ${MONTHS[d.getMonth()]} ${d.getFullYear()}</span>
+        ${diffStr?`<span style="font-size:11px;font-weight:600;color:${diffColor}">${diffStr}</span>`:''}
+        <span style="font-size:15px;font-weight:700;color:var(--text)">${entry.value} кг</span>
+        <span onclick="deleteWeight(${i})" style="color:var(--text3);cursor:pointer;padding:2px 6px"><i class="ph ph-x" style="font-size:14px"></i></span>
+      </div>`;
+    }).join('');
+}
+
+async function deleteWeight(idx){
+  if(!Array.isArray(weights)) return;
+  weights.splice(idx,1);
+  await saveWeights();
+  renderStats();
+}
+
+async function saveWeight(){
+  const val=parseFloat(document.getElementById('w-inp').value);
+  if(!val||val<30||val>300) return;
+  // Add new entry to array (allow multiple per day with timestamp)
+  const entry = {date: todayKey(), value: val, ts: Date.now()};
+  if(!Array.isArray(weights)) weights=[];
+  weights.unshift(entry); // newest first
+  // Keep max 365 entries
+  if(weights.length>365) weights=weights.slice(0,365);
+  await saveWeights();
+  if(profile){ profile.weight=val; await saveProfile(); }
+  document.getElementById('w-inp').value='';
+  const s=document.getElementById('w-saved'); if(s){s.style.display='inline';setTimeout(()=>s.style.display='none',2000);}
+  renderStats();
+}
+
+// ─── PROFILE ───
+function renderProfile(){
+  const name=profile?.name||TG_USER.first_name||'Мой дневник';
+  document.getElementById('p-ava').textContent=name.slice(0,1).toUpperCase();
+  document.getElementById('p-name').textContent=name;
+  const now=new Date();
+  document.getElementById('p-sub').textContent='С нами с '+now.getDate()+' '+MONTHS[now.getMonth()]+' '+now.getFullYear();
+  renderMealScheduleList();
+  renderVitScheduleList();
+  renderMedsList();
+}
+
+function renderMealScheduleList(){
+  const el=document.getElementById('meal-schedule-list'); if(!el) return;
+  const sched=getMealSchedule();
+  const icons={water:'ph-drop',breakfast:'ph-coffee',snack1:'ph-nut',lunch:'ph-bowl-food',snack2:'ph-orange-slice',dinner:'ph-fork-knife'};
+  const colors={water:'var(--blue)',breakfast:'var(--orange)',snack1:'var(--green)',lunch:'var(--teal)',snack2:'var(--orange)',dinner:'var(--purple)'};
+  const bgs={water:'var(--blue3)',breakfast:'var(--orange3)',snack1:'var(--green3)',lunch:'var(--teal3)',snack2:'var(--orange3)',dinner:'var(--purple3)'};
+  el.innerHTML=sched.map(m=>{
+    const on=m.enabled;
+    return `<div class="p-row">
+      <div class="p-row-ico" style="background:${bgs[m.id]||'var(--green3)'}"><i class="ph ${icons[m.id]||'ph-clock'}" style="color:${colors[m.id]||'var(--green)'}"></i></div>
+      <span class="p-row-label">${m.name}</span>
+      <input type="time" value="${m.time}" class="p-time-input" style="margin-right:8px" onchange="debounceMealTime('${m.id}',this.value)"/>
+      <div class="ntoggle ${on?'on':''}" onclick="toggleMealEnabled('${m.id}',this)"><div class="ntoggle-knob"></div></div>
+    </div>`;
+  }).join('')+`<div style="padding:8px 13px"><button class="reset-btn" onclick="resetSchedule()">↺ Сбросить по умолчанию</button></div>`;
+}
+
+let _mealTimeTimer = {};
+function debounceMealTime(id, val) {
+  clearTimeout(_mealTimeTimer[id]);
+  _mealTimeTimer[id] = setTimeout(() => updateMealTime(id, val), 800);
+}
+
+let _vitTimeTimer = {};
+function debounceVitTime(id, val) {
+  clearTimeout(_vitTimeTimer[id]);
+  _vitTimeTimer[id] = setTimeout(() => updateVitTime(id, val), 800);
+}
+
+async function updateMealTime(id, val){
+  if(!profile.schedule) profile.schedule=buildDefaultSchedule(profile.breakfastTime||'08:00');
+  const m=profile.schedule.find(x=>x.id===id);
+  if(m){ m.time=val; if(id==='breakfast'){ profile.breakfastTime=val; cascadeMealTimes(val); } }
+  await saveProfile(); // saves + pushes schedule to server
+  renderMeals();
+  renderVits();
+  renderMealScheduleList();
+}
+
+function cascadeMealTimes(breakfastTime){
+  // When breakfast changes, recalculate all other times proportionally
+  const def=buildDefaultSchedule(breakfastTime);
+  const sched=profile.schedule;
+  def.forEach(dm=>{
+    const ex=sched.find(m=>m.id===dm.id);
+    if(ex && ex.id!=='breakfast') ex.time=dm.time;
+  });
+}
+
+async function toggleMealEnabled(id, el){
+  if(!profile.schedule) profile.schedule=buildDefaultSchedule(profile.breakfastTime||'08:00');
+  const m=profile.schedule.find(x=>x.id===id);
+  if(m){ m.enabled=!m.enabled; el.classList.toggle('on',m.enabled); }
+  await saveProfile();
+  renderMeals();
+  updateRings();
+}
+
+// Push schedule when vitamine enabled state changes
+
+
+async function resetSchedule(){
+  if(!profile) return;
+  profile.schedule=buildDefaultSchedule(profile.breakfastTime||'08:00');
+  await saveProfile();
+  renderMealScheduleList();
+  renderMeals();
+  updateRings();
+}
+
+function renderVitScheduleList(){
+  const el=document.getElementById('vit-schedule-list'); if(!el) return;
+  const allVits = VITS_ALL;
+  const selectedIds = profile?.vitamins||[];
+  const hiddenIds = profile?.vitHidden||[];
+
+  // Selected vitamins rows
+  let h = selectedIds.map(id=>{
+    const v = allVits.find(x=>x.id===id); if(!v) return '';
+    const t = getVitTime(v.id, profile);
+    const hidden = hiddenIds.includes(v.id);
+    return `<div class="p-row">
+      <div class="p-row-ico" style="background:${v.bg}"><i class="ph ${v.icon}" style="color:${v.color}"></i></div>
+      <span class="p-row-label">${v.name}</span>
+      <input type="time" value="${t}" class="p-time-input" style="margin-right:8px" onchange="debounceVitTime('${v.id}',this.value)"/>
+      <div class="ntoggle ${hidden?'':'on'}" onclick="toggleVitVisible('${v.id}',this)" title="Показывать в Сегодня"><div class="ntoggle-knob"></div></div>
+    </div>`;
+  }).join('');
+
+  // Unselected vitamins — collapsible
+  const unselected = allVits.filter(v=>!selectedIds.includes(v.id));
+  const addId = 'vit-add-expand';
+  h += `<div class="add-btn" onclick="toggleAddVitList()" style="border-top:.5px solid var(--border)"><i class="ph ph-plus-circle" style="font-size:19px"></i>Добавить витамин</div>`;
+  h += `<div id="${addId}" style="display:none">`;
+  h += unselected.map(v=>`<div class="p-row" style="cursor:pointer" onclick="addVitToProfile('${v.id}')">
+    <div class="p-row-ico" style="background:${v.bg}"><i class="ph ${v.icon}" style="color:${v.color}"></i></div>
+    <span class="p-row-label">${v.name}</span>
+    <i class="ph ph-plus" style="color:var(--green);font-size:18px"></i>
+  </div>`).join('');
+  h += '</div>';
+  h += `<div style="padding:8px 13px"><button class="reset-btn" onclick="resetVitTimes()">↺ Сбросить время по умолчанию</button></div>`;
+
+  el.innerHTML = h;
+}
+
+function toggleAddVitList(){
+  const el=document.getElementById('vit-add-expand');
+  if(el) el.style.display = el.style.display==='none'?'block':'none';
+}
+
+async function addVitToProfile(id){
+  if(!profile.vitamins) profile.vitamins=[];
+  if(!profile.vitamins.includes(id)) profile.vitamins.push(id);
+  await saveProfile();
+  renderVitScheduleList();
+  renderVits();
+  updateRings();
+}
+
+async function toggleVitVisible(id, el){
+  if(!profile.vitHidden) profile.vitHidden=[];
+  const idx = profile.vitHidden.indexOf(id);
+  if(idx>=0){ profile.vitHidden.splice(idx,1); el.classList.add('on'); }
+  else { profile.vitHidden.push(id); el.classList.remove('on'); }
+  await saveProfile();
+  renderVits();
+  updateRings();
+}
+
+async function updateVitTime(id,val){
+  if(!profile.vitTimes) profile.vitTimes={};
+  profile.vitTimes[id]=val;
+  await saveProfile();
+  renderVits();
+}
+
+async function resetVitTimes(){
+  if(!profile) return;
+  profile.vitTimes={};
+  await saveProfile();
+  renderVitScheduleList();
+  renderVits();
+}
+
+// ─── MEDS ───
+function renderMedsList(){
+  const el=document.getElementById('meds-list'); if(!el) return;
+  const meds=profile?.meds||[];
+  const hiddenMeds=profile?.medsHidden||[];
+  const MCOLS=['var(--red)','var(--orange)','var(--blue)','var(--green)','var(--purple)','var(--teal)'];
+  const MBGS=['var(--red3)','var(--orange3)','var(--blue3)','var(--green3)','var(--purple3)','var(--teal3)'];
+  let h='';
+  meds.forEach((med,i)=>{
+    const col=MCOLS[i%MCOLS.length], bg=MBGS[i%MBGS.length];
+    const hidden=hiddenMeds.includes(i);
+    h+=`<div class="p-row">
+      <div class="p-row-ico" style="background:${bg}"><i class="ph ph-pill" style="color:${col}"></i></div>
+      <div style="flex:1"><div class="p-row-label">${med.name}</div><div style="font-size:11px;color:var(--text3)">${med.dose}</div></div>
+      <input type="time" value="${med.time}" class="p-time-input" style="margin-right:6px" onchange="updateMedTime(${i},this.value)"/>
+      <div class="ntoggle ${hidden?'':'on'}" style="margin-right:6px" onclick="toggleMedVisible(${i},this)"><div class="ntoggle-knob"></div></div>
+      <span onclick="deleteMed(${i})" style="color:var(--text3);cursor:pointer;padding:4px"><i class="ph ph-trash" style="font-size:15px"></i></span>
+    </div>`;
+  });
+  h+=`<div class="add-btn" onclick="openMedModal()"><i class="ph ph-plus-circle" style="font-size:20px"></i>Добавить лекарство</div>`;
+  el.innerHTML=h;
+}
+
+function openMedModal(){ document.getElementById('med-ov').classList.add('open'); }
+function closeMedModal(){ document.getElementById('med-ov').classList.remove('open'); document.getElementById('med-name').value=''; document.getElementById('med-dose').value=''; }
+
+async function saveMed(){
+  const name=document.getElementById('med-name').value.trim();
+  const dose=document.getElementById('med-dose').value.trim();
+  const time=document.getElementById('med-time').value;
+  if(!name) return;
+  if(!profile.meds) profile.meds=[];
+  profile.meds.push({ name, dose, time });
+  await saveProfile();
+  await pushScheduleToServer();
+  closeMedModal();
+  renderMedsList();
+  renderMedsToday();
+  updateRings();
+}
+
+async function deleteMed(i){
+  if(!profile?.meds) return;
+  profile.meds.splice(i,1);
+  await saveProfile();
+  renderMedsList();
+  renderMedsToday();
+  updateRings();
+}
+
+async function updateMedTime(i, val){
+  if(!profile?.meds?.[i]) return;
+  profile.meds[i].time = val;
+  await saveProfile();
+  renderMedsToday();
+}
+
+async function toggleMedVisible(i, el){
+  if(!profile.medsHidden) profile.medsHidden=[];
+  const idx=profile.medsHidden.indexOf(i);
+  if(idx>=0){profile.medsHidden.splice(idx,1);el.classList.add('on');}
+  else{profile.medsHidden.push(i);el.classList.remove('on');}
+  await saveProfile();
+  renderMedsToday();
+}
+
+// ─── DATE ───
+function renderDate(){
+  const d=new Date(), h=d.getHours();
+  document.getElementById('today-date').textContent=DAYS_S[d.getDay()]+', '+d.getDate()+' '+MONTHS[d.getMonth()];
+  const greet=h<12?'Доброе утро':h<18?'Добрый день':'Добрый вечер';
+  const name=profile?.name||TG_USER.first_name||'';
+  document.getElementById('today-title').textContent=name?greet+', '+name+'!':greet;
+}
+
+// ─── NAV ───
+function switchTab(name,el){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.add('hidden'));
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.getElementById('s-'+name).classList.remove('hidden');
+  el.classList.add('active');
+  if(name==='stats') renderStats();
+  if(name==='food') renderFood();
+  if(name==='profile') renderProfile();
+}
+
+function openFeedback(){ document.getElementById('fb-ov').classList.add('open'); }
+function closeFeedback(){ document.getElementById('fb-ov').classList.remove('open'); document.getElementById('fb-text').value=''; }
+async function sendFeedback(){
+  const t=document.getElementById('fb-text').value.trim(); if(!t) return;
+  try {
+    await fetch(API + '/api/feedback', {
+      method:'POST',
+      headers:{'Content-Type':'application/json','X-Init-Data':INIT_DATA},
+      body: JSON.stringify({uid:TG_USER.id||0, name:TG_USER.first_name||'', text:t})
+    });
+  } catch(e){}
+  closeFeedback();
+  alert('Замечание отправлено, спасибо!');
+}
+
+// ─── ONBOARDING ───
+const OB_STEPS=4;
+let obStep=0;
+let obData={ name:'', goal:'', sex:'', age:null, weight:null, height:null, vitamins:[], schedule:null };
+
+function initOb(){
+  const el=document.getElementById('ob-prog');
+  el.innerHTML=Array.from({length:OB_STEPS},(_,i)=>`<div class="ob-dot" id="obdot-${i}"></div>`).join('');
+  updateObProg();
+  const tgName=TG_USER.first_name||'';
+  document.getElementById('ob-name').value=tgName;
+  document.getElementById('ob-welcome').textContent=tgName?`Привет, ${tgName}!`:'Привет!';
+  document.getElementById('ob-vit-sub').textContent='Рекомендуем витамины. Отметь что принимаешь или хочешь добавить.';
+}
+
+function updateObProg(){
+  for(let i=0;i<OB_STEPS;i++){
+    const d=document.getElementById('obdot-'+i); if(!d) continue;
+    d.className='ob-dot'+(i<obStep?' done':i===obStep?' cur':'');
+  }
+}
+
+function showObStep(n){
+  document.querySelectorAll('.ob-step').forEach(s=>s.classList.remove('active'));
+  document.getElementById('ob-'+n)?.classList.add('active');
+  obStep=n; updateObProg();
+  if(n===2) initMealPreview();
+  if(n===3) renderObVits();
+}
+
+function pickGoal(g,el){ obData.goal=g; document.querySelectorAll('.ob-goal').forEach(x=>x.classList.remove('active')); el.classList.add('active'); }
+function pickSex(s,el){ obData.sex=s; document.querySelectorAll('.ob-sel').forEach(x=>x.classList.remove('active')); el.classList.add('active'); }
+
+function obNext(){
+  document.activeElement?.blur();
+  if(obStep===0){
+    obData.name=document.getElementById('ob-name').value.trim()||TG_USER.first_name||'';
+    if(!obData.name){alert('Введи своё имя');return;}
+    if(!obData.goal){alert('Выбери цель');return;}
+  }
+  if(obStep===1){
+    obData.age=parseInt(document.getElementById('ob-age').value)||null;
+    obData.weight=parseFloat(document.getElementById('ob-weight').value)||null;
+    obData.height=parseInt(document.getElementById('ob-height').value)||null;
+  }
+  if(obStep<OB_STEPS-1) showObStep(obStep+1);
+}
+
+function obBack(){ if(obStep>0) showObStep(obStep-1); }
+
+let obMealSched=[];
+function initMealPreview(){
+  const bt=document.getElementById('ob-breakfast').value||'08:00';
+  obMealSched=buildDefaultSchedule(bt);
+  renderObMealPreview();
+}
+
+function recalcMealPreview(){
+  const bt=document.getElementById('ob-breakfast').value||'08:00';
+  obMealSched=buildDefaultSchedule(bt);
+  renderObMealPreview();
+}
+
+function renderObMealPreview(){
+  const el=document.getElementById('ob-meal-preview'); if(!el) return;
+  el.innerHTML='<div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:9px">Ваш график</div>'+
+    obMealSched.map(m=>`<div class="meal-preview-row">
+      <div class="mpr-toggle ${m.enabled?'on':''}" onclick="toggleObMeal('${m.id}',this)"><i class="ph ph-check"></i></div>
+      <span class="mpr-name">${m.name}</span>
+      <input type="time" value="${m.time}" style="background:var(--bg4);border:.5px solid var(--border);border-radius:7px;color:var(--green);font-size:13px;font-weight:700;padding:4px 8px;font-family:inherit;outline:none;width:82px" onchange="updateObMealTime('${m.id}',this.value)"/>
+    </div>`).join('');
+}
+
+function toggleObMeal(id,el){ const m=obMealSched.find(x=>x.id===id); if(m){m.enabled=!m.enabled; el.classList.toggle('on',m.enabled);} }
+function updateObMealTime(id,val){ const m=obMealSched.find(x=>x.id===id); if(m) m.time=val; }
+
+function renderObVits(){
+  const el=document.getElementById('ob-vit-list'); if(!el) return;
+  // Pre-select recommended ones
+  if(!obData.vitamins.length){
+    obData.vitamins=VITS_ALL.filter(v=>isVitRec(v,obData)).map(v=>v.id);
+  }
+  el.innerHTML=VITS_ALL.map(v=>{
+    const rec=isVitRec(v,obData);
+    const active=obData.vitamins.includes(v.id);
+    const dose=getVitDose(v.id,obData);
+    return `<div class="ob-vit-item ${active?'active':''}" onclick="toggleObVit('${v.id}',this)">
+      <div class="ob-vit-ico" style="background:${v.bg}"><i class="ph ${v.icon}" style="color:${v.color}"></i></div>
+      <div style="flex:1"><div class="ob-vit-name">${v.name}</div><div class="ob-vit-dose" style="color:${v.color}">${dose}</div></div>
+      ${rec?`<div style="font-size:9px;font-weight:700;color:${v.color};background:${v.bg};padding:3px 6px;border-radius:5px;margin-right:6px">РЕК</div>`:''}
+      <div class="ob-check"><i class="ph ph-check"></i></div>
+    </div>`;
+  }).join('');
+}
+
+function toggleObVit(id,el){
+  const idx=obData.vitamins.indexOf(id);
+  if(idx>=0){obData.vitamins.splice(idx,1);el.classList.remove('active');}
+  else{obData.vitamins.push(id);el.classList.add('active');}
+}
+
+async function finishOb(){
+  const bt=document.getElementById('ob-breakfast').value||'08:00';
+  profile={
+    name:obData.name, goal:obData.goal, sex:obData.sex,
+    age:obData.age, weight:obData.weight, height:obData.height,
+    breakfastTime:bt,
+    schedule:obMealSched,
+    vitamins:obData.vitamins,
+    meds:[],
+  };
+  await saveProfile(); // also pushes schedule to server
+  hideOb();
+  loadApp();
+}
+
+function showOb(){
+  const ob=document.getElementById('ob');
+  ob.style.display='flex';
+  setTimeout(()=>ob.classList.remove('hidden'),10);
+  initOb(); showObStep(0);
+}
+
+function hideOb(){
+  const ob=document.getElementById('ob');
+  ob.classList.add('hidden');
+  setTimeout(()=>ob.style.display='none',350);
+}
+
+function restartOnboarding(){
+  obData={ name:'', goal:'', sex:'', age:null, weight:null, height:null, vitamins:[], schedule:null };
+  showOb();
+}
+
+// ─── MAIN APP RENDER ───
+function renderMedsToday(){
+  const meds = profile?.meds||[];
+  const sec = document.getElementById('meds-today-section');
+  const el = document.getElementById('meds-today-list');
+  if(!el||!sec) return;
+  if(!meds.length){ sec.style.display='none'; return; }
+  sec.style.display='block';
+  const hiddenMeds=profile?.medsHidden||[];
+  const MCOLS2=['var(--red)','var(--orange)','var(--blue)','var(--green)','var(--purple)','var(--teal)'];
+  const MBGS2=['var(--red3)','var(--orange3)','var(--blue3)','var(--green3)','var(--purple3)','var(--teal3)'];
+  el.innerHTML = meds.filter((_,i)=>!hiddenMeds.includes(i)).map((med,i)=>{
+    const done = !!(dayState.meds?.[i]);
+    const col=MCOLS2[i%MCOLS2.length], bg=MBGS2[i%MBGS2.length];
+    return `<div class="meal-card ${done?'done':''}">
+      <div class="meal-hdr" onclick="">
+        <div class="meal-ico" style="background:${bg}"><i class="ph ph-pill" style="color:${col}"></i></div>
+        <div style="flex:1"><div class="meal-name">${med.name}</div><div class="meal-time-lbl">${med.time}${med.dose?' · '+med.dose:''}</div></div>
+        <div class="meal-check ${done?'on':''}" onclick="event.stopPropagation();toggleMed(${i})"><i class="ph ph-check"></i></div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+async function toggleMed(i){
+  if(!dayState.meds) dayState.meds={};
+  dayState.meds[i] = !dayState.meds[i];
+  await saveDayState();
+  renderMedsToday();
+}
+
+function loadApp(){
+  renderDate();
+  renderBottles();
+  renderMeals();
+  renderVits();
+  renderMedsToday();
+  updateRings();
+}
+
+// ─── INIT ───
+async function init(){
+  await loadAll();
+  if(!profile){
+    document.getElementById('ob').style.display='flex';
+    document.getElementById('ob').classList.remove('hidden');
+    initOb(); showObStep(0);
+  } else {
+    document.getElementById('ob').style.display='none';
+    loadApp();
+  }
+}
+
+init();
 </script>
+</body>
+</html>
