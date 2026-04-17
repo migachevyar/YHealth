@@ -145,6 +145,13 @@ class Handler(BaseHTTPRequestHandler):
                 print(f"[DB] profile saved uid={uid}", flush=True)
             return self._json({"ok":True})
 
+        if path == "/api/schedule":
+            schedule = payload.get("schedule")
+            if schedule is not None:
+                db_set(uid,"schedule",schedule)
+                print(f"[DB] schedule saved uid={uid}", flush=True)
+            return self._json({"ok":True})
+
         if path == "/api/feedback":
             text = payload.get("text","")
             name = payload.get("name","")
