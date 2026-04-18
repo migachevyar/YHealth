@@ -543,9 +543,11 @@ async function pushScheduleToServer() {
 async function saveProfile() {
   try { await CS.set('profile', profile); } catch(e) {}
   try {
-    const uid = (window.Telegram?.WebApp?.initDataUnsafe?.user?.id) || TG_USER.id || 0;
-    const initData = window.Telegram?.WebApp?.initData || INIT_DATA || '';
-    console.log('[saveProfile] uid=' + uid + ' api=' + API);
+    const tgweb = window.Telegram?.WebApp;
+    const initData = tgweb?.initData || INIT_DATA || '';
+    const user = tgweb?.initDataUnsafe?.user;
+    const uid = user?.id || TG_USER.id || 0;
+    console.log('[debug] tgweb=' + !!tgweb + ' initData.len=' + initData.length + ' user=' + JSON.stringify(user) + ' uid=' + uid);
     if(!uid) { console.warn('[saveProfile] no uid, skip server save'); return; }
     const res = await fetch(API + '/api/profile', {
       method: 'POST',
