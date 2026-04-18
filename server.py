@@ -3,6 +3,10 @@ from http.server import HTTPServer, BaseHTTPRequestHandler
 from urllib.parse import urlparse, parse_qs
 
 logger = logging.getLogger(__name__)
+
+# Queue for notifying bot about profile updates (uid strings)
+import queue as _queue
+profile_update_queue = _queue.Queue()
 BOT_TOKEN = os.environ.get("BOT_TOKEN", "")
 DB_PATH = os.environ.get("DB_PATH", "/app/data/yhealth.db")
 os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
@@ -160,6 +164,7 @@ class Handler(BaseHTTPRequestHandler):
             if profile is not None:
                 db_set(uid,"profile",profile)
                 print(f"[DB] profile saved uid={uid}", flush=True)
+                profile_update_queue.put(uid)
             return self._json({"ok":True})
 
         if path == "/api/feedback":

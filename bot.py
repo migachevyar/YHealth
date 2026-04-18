@@ -2,7 +2,7 @@ import os, json, logging, random
 from datetime import time as dtime
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo
 from telegram.ext import Application, CommandHandler, MessageHandler, ContextTypes, filters
-from server import start_server, db_get
+from server import start_server, db_get, profile_update_queue
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s: %(message)s")
 logger = logging.getLogger(__name__)
@@ -31,6 +31,10 @@ VIT_NAMES = {
     "vitb12":"Витамин B12","creatine":"Креатин","magnesium":"Магний B6",
     "zinc":"Цинк","calcium":"Кальций","iron":"Железо","probiotics":"Пробиотики",
 }
+
+# Maps telegram uid (str) -> chat_id for users who have active reminders
+_user_chat_ids: dict[str, int] = {}
+
 
 def build_reminders(profile: dict) -> list[dict]:
     """Build grouped reminders from profile. Returns [{time, text}]"""
@@ -140,6 +144,9 @@ async def setup_reminders(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if job.data and job.data.get("chat_id") == chat_id:
             job.schedule_removal()
 
+    # Register this chat for auto-rebuild on profile updates
+    _user_chat_ids[user_id] = chat_id
+
     reminders = build_reminders(profile)
     print(f"[REMIND] built {len(reminders)} reminders: {[r['time'] for r in reminders]}", flush=True)
 
@@ -200,6 +207,38 @@ async def handle_feedback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("Получено, спасибо!")
 
 
+async def auto_rebuild_reminders(context: ContextTypes.DEFAULT_TYPE):
+    """Runs every minute. Rebuilds reminders for users whose profile changed."""
+    processed = set()
+    while not profile_update_queue.empty():
+        uid = profile_update_queue.get_nowait()
+        if uid in processed:
+            continue
+        processed.add(uid)
+        chat_id = _user_chat_ids.get(uid)
+        if not chat_id:
+            continue
+        profile = db_get(uid, "profile")
+        if not profile:
+            continue
+        # Remove old jobs for this user
+        for job in context.job_queue.jobs():
+            if job.data and job.data.get("chat_id") == chat_id:
+                job.schedule_removal()
+        reminders = build_reminders(profile)
+        for r in reminders:
+            h, m = map(int, r["time"].split(":"))
+            utc_total = (h * 60 + m - TZ_OFFSET * 60) % 1440
+            utc_h, utc_m = utc_total // 60, utc_total % 60
+            context.job_queue.run_daily(
+                send_reminder,
+                time=dtime(utc_h, utc_m, 0),
+                data={"chat_id": chat_id, "text": r["text"], "local_time": r["time"]},
+                name=f"rem_{chat_id}_{r['time']}"
+            )
+        print(f"[AUTO-REMIND] rebuilt {len(reminders)} reminders for uid={uid}", flush=True)
+
+
 def main():
     if not TOKEN: raise ValueError("BOT_TOKEN missing")
     if not WEBAPP_URL: raise ValueError("WEBAPP_URL missing")
@@ -210,6 +249,8 @@ def main():
     app.add_handler(CommandHandler("stop", stop_reminders))
     app.add_handler(CommandHandler("help", start))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_feedback))
+    # Auto-rebuild reminders when profile changes (checks queue every 60s)
+    app.job_queue.run_repeating(auto_rebuild_reminders, interval=60, first=10)
     app.run_polling(drop_pending_updates=True)
 
 if __name__ == "__main__":
