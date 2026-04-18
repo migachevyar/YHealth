@@ -4,7 +4,6 @@ from urllib.parse import urlparse, parse_qs
 
 logger = logging.getLogger(__name__)
 
-# Queue for notifying bot about profile updates (uid strings)
 import queue as _queue
 profile_update_queue = _queue.Queue()
 BOT_TOKEN = os.environ.get("BOT_TOKEN", "")
