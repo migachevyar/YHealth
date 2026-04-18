@@ -1,60 +1,77 @@
-import os, json, logging, random
-from datetime import time as dtime
+import os, logging, random
+from datetime import datetime, time as dtime, timezone, timedelta
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo
 from telegram.ext import Application, CommandHandler, MessageHandler, ContextTypes, filters
 from server import start_server, db_get, profile_update_queue
 
+# ── Logging ──────────────────────────────────────────────────────────────────
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s: %(message)s")
+logging.getLogger("httpx").setLevel(logging.WARNING)   # hide HTTP Request spam
 logger = logging.getLogger(__name__)
 
-TOKEN = os.environ.get("BOT_TOKEN", "")
-WEBAPP_URL = os.environ.get("WEBAPP_URL", "")
-FEEDBACK_CHAT_ID = os.environ.get("FEEDBACK_CHAT_ID", "")
-TZ_OFFSET = int(os.environ.get("TZ_OFFSET", "3"))
-
-MEAL_TEXTS = {
-    "water":     ["💧 Стакан воды — запускает метаболизм и пробуждает организм"],
-    "breakfast": ["🍳 Завтрак! Белок утром снижает тягу к сладкому на весь день",
-                  "🍳 Не пропускай завтрак — голодный мозг работает на 20% хуже"],
-    "snack1":    ["🥜 Перекус! Небольшой приём сейчас = меньше риска переесть на обеде",
-                  "🥜 Творог, орехи или яйцо — идеальный перекус"],
-    "lunch":     ["🥗 Обед! Белок + углеводы + овощи. Ешь медленно!",
-                  "🥗 Самый важный приём пищи — не пропускай"],
-    "snack2":    ["🍎 Перекус 2! До ужина ещё далеко — поддержи уровень энергии",
-                  "🍎 Кефир, яблоко или хлебцы — выбирай"],
-    "dinner":    ["🐟 Ужин! Белок + овощи, без тяжёлых углеводов. До сна 3 часа",
-                  "🐟 Лёгкий ужин = лёгкий подъём завтра утром"],
-}
+# ── Config ───────────────────────────────────────────────────────────────────
+TOKEN        = os.environ.get("BOT_TOKEN", "")
+WEBAPP_URL   = os.environ.get("WEBAPP_URL", "")
+FEEDBACK_ID  = os.environ.get("FEEDBACK_CHAT_ID", "")
+TZ_OFFSET    = int(os.environ.get("TZ_OFFSET", "3"))   # hours ahead of UTC
 
 VIT_NAMES = {
-    "omega":"Омега-3","vitd":"Витамин D3+K2","vitc":"Витамин C",
-    "vitb12":"Витамин B12","creatine":"Креатин","magnesium":"Магний B6",
-    "zinc":"Цинк","calcium":"Кальций","iron":"Железо","probiotics":"Пробиотики",
+    "omega":"Омега-3", "vitd":"Витамин D3+K2", "vitc":"Витамин C",
+    "vitb12":"Витамин B12", "creatine":"Креатин", "magnesium":"Магний B6",
+    "zinc":"Цинк", "calcium":"Кальций", "iron":"Железо", "probiotics":"Пробиотики",
 }
 
-# Maps telegram uid (str) -> chat_id for users who have active reminders
-_user_chat_ids: dict = {}
+MEAL_ICONS = {
+    "water":"💧", "breakfast":"🍳", "snack1":"🥜",
+    "lunch":"🥗", "snack2":"🍎", "dinner":"🐟",
+}
+
+# uid (str) → chat_id (int) — populated on /start so auto-rebuild needs no /remind
+_chat: dict[str, int] = {}
 
 
-def build_reminders(profile):
-    """Build grouped reminders from profile. Returns [{time, text}]"""
+# ── Build reminders ───────────────────────────────────────────────────────────
+def build_reminders(profile: dict) -> list[dict]:
+    """Return [{time:'HH:MM', text:str}] sorted by time."""
     if not profile:
         return []
 
-    vit_list   = profile.get("vitamins", [])
-    meds_list  = profile.get("meds", [])
-    sched_list = profile.get("schedule", [])
+    sched_list  = profile.get("schedule", [])
+    vit_list    = profile.get("vitamins", [])
+    vit_hidden  = profile.get("vitHidden", [])
+    vit_times   = profile.get("vitTimes", {})
+    meds_list   = profile.get("meds", [])
+    meds_hidden = profile.get("medsHidden", [])
 
     print(
-        f"[BUILD] schedule={[(m.get('id'), m.get('time'), m.get('enabled')) for m in sched_list if isinstance(m, dict)]}"
-        f" | vitamins={vit_list}"
-        f" | vitHidden={profile.get('vitHidden', [])}"
-        f" | meds_count={len(meds_list)}"
-        f" | medsHidden={profile.get('medsHidden', [])}",
-        flush=True
+        f"[BUILD] meals={[(m.get('id'), m.get('time'), m.get('enabled')) for m in sched_list if isinstance(m, dict)]}"
+        f" | vits={vit_list} | vitHidden={vit_hidden}"
+        f" | meds={len(meds_list)} | medsHidden={meds_hidden}",
+        flush=True,
     )
 
-    events = {}
+    def t2m(t: str) -> int:
+        h, m = map(int, t.split(":"))
+        return h * 60 + m
+
+    def m2t(mins: int) -> str:
+        h, m = divmod(int(mins) % 1440, 60)
+        return f"{h:02d}:{m:02d}"
+
+    bf = next((m.get("time") for m in sched_list
+               if isinstance(m, dict) and m.get("id") == "breakfast"), None) \
+         or profile.get("breakfastTime", "08:00")
+    ln = next((m.get("time") for m in sched_list
+               if isinstance(m, dict) and m.get("id") == "lunch"), None) or "13:00"
+
+    VIT_DEFAULTS = {
+        "omega": bf, "vitd": bf, "vitc": bf, "vitb12": bf, "creatine": bf,
+        "magnesium": "22:00",
+        "zinc": ln, "calcium": ln,
+        "iron": m2t(t2m(bf) - 30), "probiotics": m2t(t2m(bf) - 30),
+    }
+
+    events: dict[str, list[str]] = {}
 
     # Meals
     for meal in sched_list:
@@ -62,210 +79,163 @@ def build_reminders(profile):
         if not meal.get("enabled", True): continue
         t = meal.get("time", "")
         if not t: continue
-        events.setdefault(t, []).append(("meal", meal.get("name", ""), meal.get("id", "")))
+        ico  = MEAL_ICONS.get(meal.get("id", ""), "🍽")
+        name = meal.get("name", "")
+        events.setdefault(t, []).append(f"{ico} {name}")
 
     # Vitamins
-    vit_hidden = profile.get("vitHidden", [])
-    vit_times  = profile.get("vitTimes", {})
-    bf_time = (
-        next((m.get("time") for m in sched_list
-              if isinstance(m, dict) and m.get("id") == "breakfast"), None)
-        or profile.get("breakfastTime", "08:00")
-    )
-    ln_time = (
-        next((m.get("time") for m in sched_list
-              if isinstance(m, dict) and m.get("id") == "lunch"), None)
-        or "13:00"
-    )
-
-    def mins_to_time(mins):
-        h, m = divmod(int(mins) % 1440, 60)
-        return f"{h:02d}:{m:02d}"
-
-    def time_to_mins(t):
-        h, m = map(int, t.split(":"))
-        return h * 60 + m
-
-    bf_mins = time_to_mins(bf_time)
-
-    VIT_DEFAULT_TIMES = {
-        "omega":      bf_time,
-        "vitd":       bf_time,
-        "vitc":       bf_time,
-        "vitb12":     bf_time,
-        "creatine":   bf_time,
-        "magnesium":  "22:00",
-        "zinc":       ln_time,
-        "calcium":    ln_time,
-        "iron":       mins_to_time(bf_mins - 30),
-        "probiotics": mins_to_time(bf_mins - 30),
-    }
-
     for vid in vit_list:
         if vid in vit_hidden: continue
-        t = vit_times.get(vid) or VIT_DEFAULT_TIMES.get(vid, bf_time)
+        t    = vit_times.get(vid) or VIT_DEFAULTS.get(vid, bf)
         name = VIT_NAMES.get(vid, vid)
-        events.setdefault(t, []).append(("vit", name, vid))
+        events.setdefault(t, []).append(f"💊 {name}")
 
-    # Meds — medsHidden stores integer indices
-    meds_hidden = profile.get("medsHidden", [])
+    # Meds
     for i, med in enumerate(meds_list):
         if not isinstance(med, dict): continue
         if i in meds_hidden: continue
         t = med.get("time", "")
         if not t: continue
-        events.setdefault(t, []).append(("med", med.get("name", ""), ""))
+        events.setdefault(t, []).append(f"💉 {med.get('name', '')}")
 
     reminders = []
-    for t, items in sorted(events.items()):
-        lines = []
-        for typ, name, mid in items:
-            if typ == "meal":
-                texts = MEAL_TEXTS.get(mid, [f"🍽 {name}"])
-                lines.append(random.choice(texts))
-            elif typ == "vit":
-                lines.append(f"💊 {name} — время принять!")
-            elif typ == "med":
-                lines.append(f"💉 {name}")
-        if lines:
-            reminders.append({"time": t, "text": "\n".join(lines)})
+    for t, lines in sorted(events.items()):
+        body = "\n".join(lines)
+        reminders.append({"time": t, "text": f"⏰ {t}\n{body}"})
 
     return reminders
 
 
-def _schedule_jobs(job_queue, chat_id, reminders):
+# ── Job scheduling ────────────────────────────────────────────────────────────
+def _now_utc() -> datetime:
+    return datetime.now(timezone.utc)
+
+
+def _schedule_jobs(jq, chat_id: int, reminders: list[dict]):
+    """Register run_daily jobs. Also run_once for reminders that are still
+    upcoming today in local time but whose UTC time has already passed
+    (happens when the bot restarts after midnight UTC but before local midnight)."""
+    now_utc  = _now_utc()
+    tz_delta = timedelta(hours=TZ_OFFSET)
+
     for r in reminders:
-        h, m = map(int, r["time"].split(":"))
-        utc_total = (h * 60 + m - TZ_OFFSET * 60) % 1440
+        lh, lm = map(int, r["time"].split(":"))
+        utc_total = (lh * 60 + lm - TZ_OFFSET * 60) % 1440
         utc_h, utc_m = utc_total // 60, utc_total % 60
-        job_queue.run_daily(
+
+        # Daily job (fires every day going forward)
+        jq.run_daily(
             send_reminder,
             time=dtime(utc_h, utc_m, 0),
             data={"chat_id": chat_id, "text": r["text"], "local_time": r["time"]},
-            name=f"rem_{chat_id}_{r['time']}"
+            name=f"rem_{chat_id}_{r['time']}",
         )
 
+        # Handle two edge cases with run_once:
+        target_utc_today = now_utc.replace(hour=utc_h, minute=utc_m, second=0, microsecond=0)
+        local_now_mins   = (now_utc + tz_delta).hour * 60 + (now_utc + tz_delta).minute
+        local_rem_mins   = lh * 60 + lm
+        passed_secs      = (now_utc - target_utc_today).total_seconds()
 
+        if target_utc_today <= now_utc and local_rem_mins > local_now_mins:
+            # Case 1: UTC crossed midnight but local time hasn't — fire today
+            jq.run_once(
+                send_reminder,
+                when=target_utc_today + timedelta(days=1),
+                data={"chat_id": chat_id, "text": r["text"], "local_time": r["time"]},
+            )
+        elif 0 < passed_secs <= 300:
+            # Case 2: reminder just passed within last 5 min (e.g. /remind called
+            # seconds after the scheduled time) — fire immediately
+            jq.run_once(
+                send_reminder,
+                when=3,
+                data={"chat_id": chat_id, "text": r["text"], "local_time": r["time"]},
+            )
+
+
+def _remove_user_jobs(jq, chat_id: int):
+    for job in jq.jobs():
+        if job.data and job.data.get("chat_id") == chat_id:
+            job.schedule_removal()
+
+
+# ── Handlers ──────────────────────────────────────────────────────────────────
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    print(f"[START] user={update.effective_user.id}", flush=True)
+    uid     = str(update.effective_user.id)
+    chat_id = update.effective_chat.id
+    _chat[uid] = chat_id   # register so auto-rebuild works without /remind
+    print(f"[START] uid={uid} chat_id={chat_id}", flush=True)
     kb = [[InlineKeyboardButton("📱 Открыть YHealth", web_app=WebAppInfo(url=WEBAPP_URL))]]
     await update.message.reply_text(
         "👋 Привет! Это YHealth — твой дневник здоровья.\n\n"
-        "Настрой профиль в приложении, затем напиши /remind чтобы включить уведомления.",
-        reply_markup=InlineKeyboardMarkup(kb)
+        "Настрой профиль в приложении, напоминания включатся автоматически.\n"
+        "Или напиши /remind чтобы включить сейчас.",
+        reply_markup=InlineKeyboardMarkup(kb),
     )
 
 
 async def setup_reminders(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_id = str(update.effective_user.id)
+    uid     = str(update.effective_user.id)
     chat_id = update.effective_chat.id
-    print(f"[REMIND] user_id={user_id}", flush=True)
+    _chat[uid] = chat_id
+    print(f"[REMIND] uid={uid}", flush=True)
 
-    profile = db_get(user_id, "profile")
-    print(f"[REMIND] profile={'found' if profile else 'NOT FOUND'}", flush=True)
-
+    profile = db_get(uid, "profile")
     if not profile:
         await update.message.reply_text(
-            "❌ Профиль не найден в базе.\n\n"
-            "Открой приложение → Профиль → поменяй любой тогл и подожди 2 секунды. "
+            "❌ Профиль не найден.\n\n"
+            "Открой приложение → Профиль → измени любой параметр → сохранится автоматически.\n"
             "Затем снова напиши /remind"
         )
         return
 
-    _user_chat_ids[user_id] = chat_id
-
-    for job in context.job_queue.jobs():
-        if job.data and job.data.get("chat_id") == chat_id:
-            job.schedule_removal()
-
+    _remove_user_jobs(context.job_queue, chat_id)
     reminders = build_reminders(profile)
+    _schedule_jobs(context.job_queue, chat_id, reminders)
     print(f"[REMIND] built {len(reminders)} reminders: {[r['time'] for r in reminders]}", flush=True)
 
-    _schedule_jobs(context.job_queue, chat_id, reminders)
+    if not reminders:
+        await update.message.reply_text("⚠️ Нет активных приёмов пищи, витаминов или лекарств.")
+        return
 
-    if reminders:
-        lines = "\n".join(f"• {r['time']}" for r in reminders)
-        tz_name = {3:"Москва",4:"Самара",5:"Екатеринбург",7:"Красноярск",
-                   8:"Иркутск",10:"Владивосток"}.get(TZ_OFFSET, f"UTC+{TZ_OFFSET}")
-        await update.message.reply_text(
-            f"✅ Напоминания включены — {len(reminders)} уведомлений\n"
-            f"🕐 Часовой пояс: {tz_name}\n\n"
-            f"Расписание:\n{lines}\n\n"
-            f"Чтобы отключить — /stop"
-        )
-    else:
-        await update.message.reply_text("⚠️ В профиле нет активных приёмов пищи или витаминов.")
+    tz_name = {3:"Москва",4:"Самара",5:"Екатеринбург",7:"Красноярск",
+               8:"Иркутск",10:"Владивосток"}.get(TZ_OFFSET, f"UTC+{TZ_OFFSET}")
+
+    lines = []
+    for r in reminders:
+        # r["text"] is "⏰ HH:MM\n<items>" — extract items line
+        items_text = r["text"].split("\n", 1)[1] if "\n" in r["text"] else ""
+        lines.append(f"*{r['time']}* — {items_text.replace(chr(10), ', ')}")
+
+    msg = (
+        f"✅ Напоминания включены — {len(reminders)} уведомлений\n"
+        f"🕐 Часовой пояс: {tz_name}\n\n"
+        + "\n".join(lines) +
+        "\n\nЧтобы отключить — /stop"
+    )
+    await update.message.reply_text(msg, parse_mode="Markdown")
 
 
 async def send_reminder(context: ContextTypes.DEFAULT_TYPE):
-    job = context.job
+    d  = context.job.data
     kb = [[InlineKeyboardButton("Открыть трекер", web_app=WebAppInfo(url=WEBAPP_URL))]]
     await context.bot.send_message(
-        chat_id=job.data["chat_id"],
-        text=job.data["text"],
-        reply_markup=InlineKeyboardMarkup(kb)
+        chat_id=d["chat_id"],
+        text=d["text"],
+        reply_markup=InlineKeyboardMarkup(kb),
     )
 
 
 async def stop_reminders(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
-    for job in context.job_queue.jobs():
-        if job.data and job.data.get("chat_id") == chat_id:
-            job.schedule_removal()
+    _remove_user_jobs(context.job_queue, chat_id)
     await update.message.reply_text("🔕 Напоминания отключены. Чтобы включить — /remind")
 
 
-async def status_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Show raw profile state stored in DB."""
-    user_id = str(update.effective_user.id)
-    chat_id = update.effective_chat.id
-    profile = db_get(user_id, "profile")
-
-    if not profile:
-        await update.message.reply_text("❌ Профиль не найден.")
-        return
-
-    sched      = profile.get("schedule", [])
-    vitamins   = profile.get("vitamins", [])
-    vit_hidden = profile.get("vitHidden", [])
-    meds       = profile.get("meds", [])
-    meds_hidden= profile.get("medsHidden", [])
-
-    lines = ["📋 *Профиль в базе:*\n"]
-
-    lines.append("*Питание:*")
-    for m in sched:
-        if isinstance(m, dict):
-            flag = "✅" if m.get("enabled", True) else "❌"
-            lines.append(f"  {flag} {m.get('name','')} — {m.get('time','?')}")
-
-    lines.append(f"\n*Витамины* ({len(vitamins)} шт):")
-    for vid in vitamins:
-        flag = "🙈" if vid in vit_hidden else "💊"
-        lines.append(f"  {flag} {VIT_NAMES.get(vid, vid)}")
-    if not vitamins:
-        lines.append("  (нет)")
-
-    lines.append(f"\n*Лекарства* ({len(meds)} шт):")
-    for i, med in enumerate(meds):
-        if isinstance(med, dict):
-            flag = "🙈" if i in meds_hidden else "💉"
-            lines.append(f"  {flag} [{i}] {med.get('name','')} {med.get('dose','')} — {med.get('time','?')}")
-    if not meds:
-        lines.append("  (нет)")
-
-    active = sorted(j.data["local_time"] for j in context.job_queue.jobs()
-                    if j.data and j.data.get("chat_id") == chat_id)
-    lines.append(f"\n*Активных напоминаний:* {len(active)}")
-    if active:
-        lines.append("  " + ", ".join(active))
-
-    await update.message.reply_text("\n".join(lines), parse_mode="Markdown")
-
-
 async def auto_rebuild_reminders(context: ContextTypes.DEFAULT_TYPE):
-    """Silently rebuilds reminders when profile changes."""
-    processed = set()
+    """Silently rebuilds reminders on every profile save (drains queue every 60s)."""
+    processed: set[str] = set()
     while not profile_update_queue.empty():
         try:
             uid = profile_update_queue.get_nowait()
@@ -275,49 +245,47 @@ async def auto_rebuild_reminders(context: ContextTypes.DEFAULT_TYPE):
             continue
         processed.add(uid)
 
-        chat_id = _user_chat_ids.get(uid)
-        if not chat_id:
-            continue
+        # Use stored chat_id; fallback: in private chats chat_id == user_id
+        chat_id = _chat.get(uid) or int(uid)
 
         profile = db_get(uid, "profile")
         if not profile:
             continue
 
-        for job in context.job_queue.jobs():
-            if job.data and job.data.get("chat_id") == chat_id:
-                job.schedule_removal()
-
+        _remove_user_jobs(context.job_queue, chat_id)
         reminders = build_reminders(profile)
         _schedule_jobs(context.job_queue, chat_id, reminders)
-        print(f"[AUTO-REMIND] uid={uid} rebuilt {len(reminders)} reminders: {[r['time'] for r in reminders]}", flush=True)
+        print(
+            f"[AUTO] uid={uid} rebuilt {len(reminders)} reminders: {[r['time'] for r in reminders]}",
+            flush=True,
+        )
 
 
 async def handle_feedback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not update.message or not update.message.text: return
     text = update.message.text
     if text.startswith("/"): return
-    if FEEDBACK_CHAT_ID:
+    if FEEDBACK_ID:
         user = update.effective_user
-        await context.bot.send_message(
-            chat_id=FEEDBACK_CHAT_ID,
-            text=f"💬 {user.first_name}:\n\n{text}"
-        )
+        await context.bot.send_message(chat_id=FEEDBACK_ID, text=f"💬 {user.first_name}:\n\n{text}")
     await update.message.reply_text("Получено, спасибо!")
 
 
+# ── Main ──────────────────────────────────────────────────────────────────────
 def main():
-    if not TOKEN: raise ValueError("BOT_TOKEN missing")
+    if not TOKEN:    raise ValueError("BOT_TOKEN missing")
     if not WEBAPP_URL: raise ValueError("WEBAPP_URL missing")
     start_server()
     app = Application.builder().token(TOKEN).build()
     app.add_handler(CommandHandler("start",  start))
     app.add_handler(CommandHandler("remind", setup_reminders))
     app.add_handler(CommandHandler("stop",   stop_reminders))
-    app.add_handler(CommandHandler("status", status_command))
     app.add_handler(CommandHandler("help",   start))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_feedback))
+    # Auto-rebuild reminders when profile changes (drains queue every 60s)
     app.job_queue.run_repeating(auto_rebuild_reminders, interval=60, first=10)
     app.run_polling(drop_pending_updates=True)
+
 
 if __name__ == "__main__":
     main()
