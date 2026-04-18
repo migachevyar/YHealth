@@ -541,17 +541,21 @@ async function pushScheduleToServer() {
 }
 
 async function saveProfile() {
+  try { await CS.set('profile', profile); } catch(e) {}
   try {
-    await CS.set('profile', profile);
-    if(TG_USER.id) {
-      await fetch(API + '/api/profile', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json', 'X-Init-Data': INIT_DATA},
-        body: JSON.stringify({ uid: TG_USER.id, profile: profile })
-      });
-    }
+    const uid = (window.Telegram?.WebApp?.initDataUnsafe?.user?.id) || TG_USER.id || 0;
+    const initData = window.Telegram?.WebApp?.initData || INIT_DATA || '';
+    console.log('[saveProfile] uid=' + uid + ' api=' + API);
+    if(!uid) { console.warn('[saveProfile] no uid, skip server save'); return; }
+    const res = await fetch(API + '/api/profile', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json', 'X-Init-Data': initData},
+      body: JSON.stringify({ uid: uid, profile: profile })
+    });
+    const json = await res.json();
+    console.log('[saveProfile] server response:', JSON.stringify(json));
   } catch(e) {
-    console.error("saveProfile failed", e);
+    console.error('[saveProfile] fetch failed:', e.message);
   }
 }
 async function saveWeights(){ await CS.set('weights', weights); }
