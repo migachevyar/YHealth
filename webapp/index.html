@@ -440,6 +440,8 @@ const tg = window.Telegram?.WebApp;
 const TG_USER = tg?.initDataUnsafe?.user || {};
 const INIT_DATA = tg?.initData || '';
 const API = window.location.origin;
+// Mutable uid — resolved from initData or CloudStorage fallback (Desktop workaround)
+let _resolvedUid = TG_USER.id || 0;
 if(tg){
   tg.expand(); tg.ready();
   tg.setHeaderColor('#09090f');
@@ -547,8 +549,20 @@ async function saveProfile() {
     const tgweb = window.Telegram?.WebApp;
     const initData = tgweb?.initData || INIT_DATA || '';
     const user = tgweb?.initDataUnsafe?.user;
-    const uid = user?.id || TG_USER.id || 0;
-    console.log('[debug] tgweb=' + !!tgweb + ' initData.len=' + initData.length + ' user=' + JSON.stringify(user) + ' uid=' + uid);
+    let uid = user?.id || _resolvedUid || 0;
+
+    // Telegram Desktop workaround: initData is empty, user is undefined.
+    // Try to recover stored uid from CloudStorage (set on mobile/first use).
+    if(!uid) {
+      try {
+        const stored = await CS.get('_uid');
+        if(stored) { uid = stored; _resolvedUid = stored; }
+      } catch(e) {}
+    }
+    // Persist uid for future Desktop sessions
+    if(uid) { try { await CS.set('_uid', uid); } catch(e) {} }
+
+    console.log('[debug] tgweb=' + !!tgweb + ' initData.len=' + initData.length + ' user=' + JSON.stringify(user) + ' uid=' + uid + ' resolved=' + _resolvedUid);
     if(!uid) { console.warn('[saveProfile] no uid, skip server save'); return; }
     const res = await fetch(API + '/api/profile', {
       method: 'POST',
@@ -1566,6 +1580,18 @@ function loadApp(){
 
 // ─── INIT ───
 async function init(){
+  // Bootstrap _resolvedUid from CloudStorage before anything else.
+  // Handles Telegram Desktop where initData is empty and TG_USER.id is 0.
+  if(!_resolvedUid) {
+    try {
+      const stored = await CS.get('_uid');
+      if(stored) _resolvedUid = stored;
+    } catch(e) {}
+  } else {
+    // On mobile/valid session — persist for future Desktop use
+    try { await CS.set('_uid', _resolvedUid); } catch(e) {}
+  }
+
   await loadAll();
   if(!profile){
     document.getElementById('ob').style.display='flex';
