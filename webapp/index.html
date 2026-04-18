@@ -541,25 +541,17 @@ async function pushScheduleToServer() {
 }
 
 async function saveProfile() {
-  console.log("Auto-saving profile...");
   try {
-    // Сохраняем локально
     await CS.set('profile', profile);
-    
-    // Отправляем на сервер Railway
-    await fetch(API + '/api/profile', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Init-Data': tg.initData
-      },
-      body: JSON.stringify({ 
-        uid: tg.initDataUnsafe.user?.id || 0, 
-        profile: profile 
-      })
-    });
+    if(TG_USER.id) {
+      await fetch(API + '/api/profile', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json', 'X-Init-Data': INIT_DATA},
+        body: JSON.stringify({ uid: TG_USER.id, profile: profile })
+      });
+    }
   } catch(e) {
-    console.error("Save failed", e);
+    console.error("saveProfile failed", e);
   }
 }
 async function saveWeights(){ await CS.set('weights', weights); }
