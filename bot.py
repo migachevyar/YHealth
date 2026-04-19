@@ -90,13 +90,15 @@ def build_reminders(profile: dict) -> list[dict]:
         name = VIT_NAMES.get(vid, vid)
         events.setdefault(t, []).append(f"💊 {name}")
 
-    # Meds
+    # Meds — supports old {time} and new {times:[]} formats
     for i, med in enumerate(meds_list):
         if not isinstance(med, dict): continue
         if i in meds_hidden: continue
-        t = med.get("time", "")
-        if not t: continue
-        events.setdefault(t, []).append(f"💉 {med.get('name', '')}")
+        name = med.get("name", "")
+        times = med.get("times") or ([med["time"]] if med.get("time") else [])
+        for t in times:
+            if not t: continue
+            events.setdefault(t, []).append(f"💉 {name}")
 
     reminders = []
     for t, lines in sorted(events.items()):

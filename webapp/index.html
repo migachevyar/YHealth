@@ -4,7 +4,6 @@
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"/>
 <title>YHealth</title>
-<script src="https://telegram.org/js/telegram-web-app.js"></script>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@phosphor-icons/web@2.1.1/src/regular/style.css"/>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
@@ -164,6 +163,27 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Inter'
 .ntoggle-knob{position:absolute;top:2.5px;left:2.5px;width:18px;height:18px;border-radius:50%;background:#fff;transition:transform .2s cubic-bezier(.34,1.56,.64,1)}
 .ntoggle.on .ntoggle-knob{transform:translateX(17px)}
 .reset-btn{background:transparent;border:none;color:var(--text3);font-size:12px;cursor:pointer;font-family:inherit;padding:8px 13px}
+/* Med multiple times */
+.med-block{border-bottom:.5px solid var(--border)}
+.med-block:last-child{border-bottom:none}
+.med-header{display:flex;align-items:center;gap:11px;padding:11px 13px}
+.med-times-body{padding:0 13px 10px 56px}
+.med-time-row{display:flex;align-items:center;gap:7px;margin-bottom:5px}
+.med-time-minus{width:22px;height:22px;border-radius:50%;background:var(--bg4);border:none;color:var(--text3);cursor:pointer;font-size:16px;line-height:1;display:flex;align-items:center;justify-content:center;font-family:inherit;flex-shrink:0}
+.med-add-time{color:var(--blue);font-size:12px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:5px;padding:2px 0 4px}
+/* Edit profile modal */
+.ep-goal{display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--bg3);border-radius:11px;cursor:pointer;border:1.5px solid transparent;margin-bottom:6px;transition:all .18s}
+.ep-goal.active{border-color:rgba(47,209,88,.4);background:rgba(47,209,88,.07)}
+.ep-goal i{font-size:17px;width:22px;text-align:center}
+.ep-goal span{font-size:14px;font-weight:600}
+.ep-edit-btn{background:none;border:none;color:var(--text3);cursor:pointer;padding:4px;display:flex;align-items:center;margin-left:auto}
+.ep-edit-btn i{font-size:20px}
+/* Icon picker */
+.icon-picker{display:flex;flex-wrap:wrap;gap:7px;margin-bottom:11px}
+.icon-opt{width:42px;height:42px;border-radius:10px;background:var(--bg3);border:1.5px solid transparent;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all .18s}
+.icon-opt.sel{border-color:rgba(47,209,88,.5);background:var(--green3)}
+.icon-opt i{font-size:20px;color:var(--text2)}
+.icon-opt.sel i{color:var(--green)}
 /* MEDS */
 .med-row{display:flex;align-items:center;gap:11px;padding:12px 13px;border-bottom:.5px solid var(--border);cursor:pointer}
 .med-row:last-child{border-bottom:none}
@@ -301,7 +321,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Inter'
     <div class="screen hidden" id="s-profile">
       <div class="hdr"><div class="hdr-sub">Настройки</div><div class="hdr-title">Профиль</div></div>
       <div class="pad">
-        <div class="p-hero"><div class="p-avatar" id="p-ava">Я</div><div><div class="p-name" id="p-name">Мой дневник</div><div class="p-sub" id="p-sub"></div></div></div>
+        <div class="p-hero"><div class="p-avatar" id="p-ava">Я</div><div style="flex:1"><div class="p-name" id="p-name">Мой дневник</div><div class="p-sub" id="p-sub"></div></div><button class="ep-edit-btn" onclick="openEditProfile()"><i class="ph ph-pencil-simple"></i></button></div>
 
         <div class="sec">Расписание питания</div>
         <div class="p-section" id="meal-schedule-list"></div>
@@ -351,25 +371,44 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Inter'
 <!-- MED MODAL -->
 <div class="modal-ov" id="med-ov">
   <div class="modal">
-    <div class="modal-title" id="med-modal-title">Добавить лекарство</div>
+    <div class="modal-title">Добавить лекарство</div>
     <input class="modal-input" id="med-name" placeholder="Название лекарства"/>
-    <div class="modal-row">
-      <input class="modal-input" id="med-dose" placeholder="Дозировка (напр: 1 таб.)" style="flex:1;margin-bottom:0"/>
-      <input class="modal-input" id="med-time" type="time" value="08:00" style="width:100px;margin-bottom:0;margin-left:8px"/>
-    </div>
-    <div style="margin-top:9px;margin-bottom:9px">
-      <div class="ob-lbl">Повтор</div>
-      <div style="display:flex;gap:6px;flex-wrap:wrap" id="med-days">
-        <button class="ob-sel active" style="flex:0 0 auto;min-width:44px" onclick="this.classList.toggle('active')">Пн</button>
-        <button class="ob-sel active" style="flex:0 0 auto;min-width:44px" onclick="this.classList.toggle('active')">Вт</button>
-        <button class="ob-sel active" style="flex:0 0 auto;min-width:44px" onclick="this.classList.toggle('active')">Ср</button>
-        <button class="ob-sel active" style="flex:0 0 auto;min-width:44px" onclick="this.classList.toggle('active')">Чт</button>
-        <button class="ob-sel active" style="flex:0 0 auto;min-width:44px" onclick="this.classList.toggle('active')">Пт</button>
-        <button class="ob-sel active" style="flex:0 0 auto;min-width:44px" onclick="this.classList.toggle('active')">Сб</button>
-        <button class="ob-sel active" style="flex:0 0 auto;min-width:44px" onclick="this.classList.toggle('active')">Вс</button>
-      </div>
-    </div>
+    <input class="modal-input" id="med-dose" placeholder="Дозировка (напр: 1 таб.)"/>
+    <div class="ob-lbl" style="margin-bottom:8px">Приёмы</div>
+    <div id="med-times-list"></div>
+    <div class="add-btn" style="padding:2px 0 10px" onclick="addMedTimeRow()"><i class="ph ph-plus-circle" style="font-size:17px"></i>Добавить приём</div>
     <div class="modal-btns"><button class="m-cancel" onclick="closeMedModal()">Отмена</button><button class="m-ok" onclick="saveMed()">Сохранить</button></div>
+  </div>
+</div>
+
+<!-- EDIT PROFILE MODAL -->
+<div class="modal-ov" id="ep-ov">
+  <div class="modal">
+    <div class="modal-title">Редактировать профиль</div>
+    <div class="ob-lbl" style="margin-bottom:6px">Имя</div>
+    <input class="modal-input" id="ep-name" placeholder="Имя"/>
+    <div class="ob-lbl" style="margin-bottom:8px">Цель</div>
+    <div class="ep-goal" onclick="epPickGoal('lose_weight',this)"><i class="ph ph-trend-down" style="color:var(--red)"></i><span>Сбросить вес</span><div class="ob-goal-check" style="margin-left:auto"><i class="ph ph-check"></i></div></div>
+    <div class="ep-goal" onclick="epPickGoal('build_muscle',this)"><i class="ph ph-barbell" style="color:var(--blue)"></i><span>Набрать мышцы</span><div class="ob-goal-check" style="margin-left:auto"><i class="ph ph-check"></i></div></div>
+    <div class="ep-goal" onclick="epPickGoal('maintain',this)"><i class="ph ph-heartbeat" style="color:var(--green)"></i><span>Поддержать форму</span><div class="ob-goal-check" style="margin-left:auto"><i class="ph ph-check"></i></div></div>
+    <div class="ob-lbl" style="margin:10px 0 8px">Пол</div>
+    <div style="display:flex;gap:8px;margin-bottom:10px"><button class="ob-sel" id="ep-male" onclick="epPickSex('male',this)">Мужской</button><button class="ob-sel" id="ep-female" onclick="epPickSex('female',this)">Женский</button></div>
+    <div class="ob-lbl" style="margin-bottom:6px">Возраст</div>
+    <input class="modal-input" id="ep-age" type="number" placeholder="лет" min="10" max="100"/>
+    <div class="modal-btns"><button class="m-cancel" onclick="closeEditProfile()">Отмена</button><button class="m-ok" onclick="saveEditProfile()">Сохранить</button></div>
+  </div>
+</div>
+
+<!-- CUSTOM MEAL MODAL -->
+<div class="modal-ov" id="cm-ov">
+  <div class="modal">
+    <div class="modal-title">Добавить приём пищи</div>
+    <input class="modal-input" id="cm-name" placeholder="Название (напр: Второй завтрак)"/>
+    <div class="ob-lbl" style="margin-bottom:8px">Иконка</div>
+    <div class="icon-picker" id="cm-icons"></div>
+    <div class="ob-lbl" style="margin-bottom:6px">Время</div>
+    <input class="modal-input" id="cm-time" type="time" value="11:00"/>
+    <div class="modal-btns"><button class="m-cancel" onclick="closeCustomMealModal()">Отмена</button><button class="m-ok" onclick="saveCustomMeal()">Добавить</button></div>
   </div>
 </div>
 
@@ -440,8 +479,6 @@ const tg = window.Telegram?.WebApp;
 const TG_USER = tg?.initDataUnsafe?.user || {};
 const INIT_DATA = tg?.initData || '';
 const API = window.location.origin;
-// Mutable uid — resolved from initData or CloudStorage fallback (Desktop workaround)
-let _resolvedUid = TG_USER.id || 0;
 if(tg){
   tg.expand(); tg.ready();
   tg.setHeaderColor('#09090f');
@@ -496,6 +533,14 @@ function todayKey(){ return dateKey(new Date()); }
 
 async function loadAll(){
   profile = await CS.get('profile');
+  // Migrate meds: old {time} → new {times:[]}
+  if(profile?.meds){
+    profile.meds = profile.meds.map(m=>{
+      if(m.time && !m.times) return {...m, times:[m.time]};
+      if(!m.times) return {...m, times:['08:00']};
+      return m;
+    });
+  }
   const key = todayKey();
   dayState = (await CS.get('day_'+key)) || { meals:{}, vitamins:{}, water:0 };
   const rawWeights = (await CS.get('weights')) || [];
@@ -549,20 +594,8 @@ async function saveProfile() {
     const tgweb = window.Telegram?.WebApp;
     const initData = tgweb?.initData || INIT_DATA || '';
     const user = tgweb?.initDataUnsafe?.user;
-    let uid = user?.id || _resolvedUid || 0;
-
-    // Telegram Desktop workaround: initData is empty, user is undefined.
-    // Try to recover stored uid from CloudStorage (set on mobile/first use).
-    if(!uid) {
-      try {
-        const stored = await CS.get('_uid');
-        if(stored) { uid = stored; _resolvedUid = stored; }
-      } catch(e) {}
-    }
-    // Persist uid for future Desktop sessions
-    if(uid) { try { await CS.set('_uid', uid); } catch(e) {} }
-
-    console.log('[debug] tgweb=' + !!tgweb + ' initData.len=' + initData.length + ' user=' + JSON.stringify(user) + ' uid=' + uid + ' resolved=' + _resolvedUid);
+    const uid = user?.id || TG_USER.id || 0;
+    console.log('[debug] tgweb=' + !!tgweb + ' initData.len=' + initData.length + ' user=' + JSON.stringify(user) + ' uid=' + uid);
     if(!uid) { console.warn('[saveProfile] no uid, skip server save'); return; }
     const res = await fetch(API + '/api/profile', {
       method: 'POST',
@@ -1149,28 +1182,44 @@ function renderProfile(){
   const name=profile?.name||TG_USER.first_name||'Мой дневник';
   document.getElementById('p-ava').textContent=name.slice(0,1).toUpperCase();
   document.getElementById('p-name').textContent=name;
-  const now=new Date();
-  document.getElementById('p-sub').textContent='С нами с '+now.getDate()+' '+MONTHS[now.getMonth()]+' '+now.getFullYear();
+  const jd = profile?.joinDate ? new Date(profile.joinDate) : new Date();
+  document.getElementById('p-sub').textContent='С нами с '+jd.getDate()+' '+MONTHS[jd.getMonth()]+' '+jd.getFullYear();
   renderMealScheduleList();
   renderVitScheduleList();
   renderMedsList();
 }
 
+const CUSTOM_MEAL_ICONS = ['ph-bowl-food','ph-fork-knife','ph-coffee','ph-nut','ph-orange-slice','ph-bread','ph-egg','ph-apple-logo','ph-carrot','ph-drop','ph-cookie','ph-pizza','ph-hamburger','ph-ice-cream'];
+const CUSTOM_MEAL_COLORS = ['var(--green)','var(--purple)','var(--orange)','var(--teal)','var(--blue)','var(--red)'];
+const CUSTOM_MEAL_BGS = ['var(--green3)','var(--purple3)','var(--orange3)','var(--teal3)','var(--blue3)','var(--red3)'];
+let _selCmIcon = 'ph-bowl-food';
+
 function renderMealScheduleList(){
   const el=document.getElementById('meal-schedule-list'); if(!el) return;
   const sched=getMealSchedule();
+  const DEFAULT_IDS=['water','breakfast','snack1','lunch','snack2','dinner'];
   const icons={water:'ph-drop',breakfast:'ph-coffee',snack1:'ph-nut',lunch:'ph-bowl-food',snack2:'ph-orange-slice',dinner:'ph-fork-knife'};
   const colors={water:'var(--blue)',breakfast:'var(--orange)',snack1:'var(--green)',lunch:'var(--teal)',snack2:'var(--orange)',dinner:'var(--purple)'};
   const bgs={water:'var(--blue3)',breakfast:'var(--orange3)',snack1:'var(--green3)',lunch:'var(--teal3)',snack2:'var(--orange3)',dinner:'var(--purple3)'};
-  el.innerHTML=sched.map(m=>{
+  el.innerHTML=sched.map((m,idx)=>{
     const on=m.enabled;
+    const isCustom=!DEFAULT_IDS.includes(m.id);
+    const ico=isCustom?(m.icon||'ph-bowl-food'):(icons[m.id]||'ph-clock');
+    const ciIdx=sched.filter((x,xi)=>!DEFAULT_IDS.includes(x.id)&&xi<=idx).length-1;
+    const col=isCustom?CUSTOM_MEAL_COLORS[ciIdx%CUSTOM_MEAL_COLORS.length]:(colors[m.id]||'var(--green)');
+    const bg=isCustom?CUSTOM_MEAL_BGS[ciIdx%CUSTOM_MEAL_BGS.length]:(bgs[m.id]||'var(--green3)');
     return `<div class="p-row">
-      <div class="p-row-ico" style="background:${bgs[m.id]||'var(--green3)'}"><i class="ph ${icons[m.id]||'ph-clock'}" style="color:${colors[m.id]||'var(--green)'}"></i></div>
+      <div class="p-row-ico" style="background:${bg}"><i class="ph ${ico}" style="color:${col}"></i></div>
       <span class="p-row-label">${m.name}</span>
       <input type="time" value="${m.time}" class="p-time-input" style="margin-right:8px" onchange="debounceMealTime('${m.id}',this.value)"/>
-      <div class="ntoggle ${on?'on':''}" onclick="toggleMealEnabled('${m.id}',this)"><div class="ntoggle-knob"></div></div>
+      ${isCustom
+        ? `<span onclick="deleteCustomMeal('${m.id}')" style="color:var(--text3);cursor:pointer;padding:4px;margin-right:2px"><i class="ph ph-trash" style="font-size:15px"></i></span>`
+        : `<div class="ntoggle ${on?'on':''}" onclick="toggleMealEnabled('${m.id}',this)"><div class="ntoggle-knob"></div></div>`
+      }
     </div>`;
-  }).join('')+`<div style="padding:8px 13px"><button class="reset-btn" onclick="resetSchedule()">↺ Сбросить по умолчанию</button></div>`;
+  }).join('')
+  +`<div class="add-btn" onclick="openCustomMealModal()"><i class="ph ph-plus-circle" style="font-size:20px"></i>Добавить приём</div>`
+  +`<div style="padding:0 13px 8px"><button class="reset-btn" onclick="resetSchedule()">↺ Сбросить по умолчанию</button></div>`;
 }
 
 let _mealTimeTimer = {};
@@ -1219,7 +1268,9 @@ async function toggleMealEnabled(id, el){
 
 async function resetSchedule(){
   if(!profile) return;
-  profile.schedule=buildDefaultSchedule(profile.breakfastTime||'08:00');
+  const DEFAULT_IDS=['water','breakfast','snack1','lunch','snack2','dinner'];
+  const custom=(profile.schedule||[]).filter(m=>!DEFAULT_IDS.includes(m.id));
+  profile.schedule=[...buildDefaultSchedule(profile.breakfastTime||'08:00'),...custom];
   await saveProfile();
   renderMealScheduleList();
   renderMeals();
@@ -1311,30 +1362,74 @@ function renderMedsList(){
   meds.forEach((med,i)=>{
     const col=MCOLS[i%MCOLS.length], bg=MBGS[i%MBGS.length];
     const hidden=hiddenMeds.includes(i);
-    h+=`<div class="p-row">
-      <div class="p-row-ico" style="background:${bg}"><i class="ph ph-pill" style="color:${col}"></i></div>
-      <div style="flex:1"><div class="p-row-label">${med.name}</div><div style="font-size:11px;color:var(--text3)">${med.dose}</div></div>
-      <input type="time" value="${med.time}" class="p-time-input" style="margin-right:6px" onchange="updateMedTime(${i},this.value)"/>
-      <div class="ntoggle ${hidden?'':'on'}" style="margin-right:6px" onclick="toggleMedVisible(${i},this)"><div class="ntoggle-knob"></div></div>
-      <span onclick="deleteMed(${i})" style="color:var(--text3);cursor:pointer;padding:4px"><i class="ph ph-trash" style="font-size:15px"></i></span>
+    const times=med.times||['08:00'];
+    const timesHtml=times.map((t,j)=>`
+      <div class="med-time-row">
+        <input type="time" value="${t}" class="p-time-input" style="font-size:13px" onchange="updateMedTime(${i},${j},this.value)"/>
+        ${times.length>1?`<button class="med-time-minus" onclick="deleteMedTime(${i},${j})">−</button>`:''}
+      </div>`).join('');
+    h+=`<div class="med-block">
+      <div class="med-header">
+        <div class="p-row-ico" style="background:${bg}"><i class="ph ph-pill" style="color:${col}"></i></div>
+        <div style="flex:1"><div class="p-row-label">${med.name}</div><div style="font-size:11px;color:var(--text3)">${med.dose}</div></div>
+        <div class="ntoggle ${hidden?'':'on'}" style="margin-right:8px" onclick="toggleMedVisible(${i},this)"><div class="ntoggle-knob"></div></div>
+        <span onclick="deleteMed(${i})" style="color:var(--text3);cursor:pointer;padding:4px"><i class="ph ph-trash" style="font-size:15px"></i></span>
+      </div>
+      <div class="med-times-body">
+        ${timesHtml}
+        <div class="med-add-time" onclick="addMedTime(${i})"><i class="ph ph-plus-circle" style="font-size:14px"></i>Добавить приём</div>
+      </div>
     </div>`;
   });
   h+=`<div class="add-btn" onclick="openMedModal()"><i class="ph ph-plus-circle" style="font-size:20px"></i>Добавить лекарство</div>`;
   el.innerHTML=h;
 }
 
-function openMedModal(){ document.getElementById('med-ov').classList.add('open'); }
-function closeMedModal(){ document.getElementById('med-ov').classList.remove('open'); document.getElementById('med-name').value=''; document.getElementById('med-dose').value=''; }
+function _renderMedTimesModal(){
+  const list=document.getElementById('med-times-list');
+  const rows=list.querySelectorAll('.med-time-row');
+  const times=[...rows].map(r=>r.querySelector('input').value);
+  list.innerHTML=times.map((t,j)=>`
+    <div class="med-time-row" style="margin-bottom:7px">
+      <input type="time" value="${t}" class="modal-input" style="flex:1;margin-bottom:0"/>
+      ${times.length>1?`<button class="med-time-minus" onclick="removeMedTimeRow(${j})">−</button>`:''}
+    </div>`).join('');
+}
+function addMedTimeRow(){
+  const list=document.getElementById('med-times-list');
+  const div=document.createElement('div');
+  div.className='med-time-row'; div.style.marginBottom='7px';
+  const t=list.querySelectorAll('input[type=time]');
+  div.innerHTML=`<input type="time" value="20:00" class="modal-input" style="flex:1;margin-bottom:0"/><button class="med-time-minus" onclick="this.parentNode.remove();_renderMedTimesModal()">−</button>`;
+  list.appendChild(div);
+  _renderMedTimesModal();
+}
+function removeMedTimeRow(j){
+  const list=document.getElementById('med-times-list');
+  const rows=[...list.querySelectorAll('.med-time-row')];
+  if(rows.length<=1) return;
+  rows[j].remove(); _renderMedTimesModal();
+}
+function openMedModal(){
+  document.getElementById('med-ov').classList.add('open');
+  document.getElementById('med-name').value='';
+  document.getElementById('med-dose').value='';
+  document.getElementById('med-times-list').innerHTML=
+    `<div class="med-time-row" style="margin-bottom:7px"><input type="time" value="08:00" class="modal-input" style="flex:1;margin-bottom:0"/></div>`;
+}
+function closeMedModal(){
+  document.getElementById('med-ov').classList.remove('open');
+}
 
 async function saveMed(){
   const name=document.getElementById('med-name').value.trim();
   const dose=document.getElementById('med-dose').value.trim();
-  const time=document.getElementById('med-time').value;
+  const timeInputs=document.getElementById('med-times-list').querySelectorAll('input[type=time]');
+  const times=[...timeInputs].map(i=>i.value).filter(Boolean);
   if(!name) return;
   if(!profile.meds) profile.meds=[];
-  profile.meds.push({ name, dose, time });
+  profile.meds.push({ name, dose, times: times.length?times:['08:00'] });
   await saveProfile();
-  await pushScheduleToServer();
   closeMedModal();
   renderMedsList();
   renderMedsToday();
@@ -1350,11 +1445,26 @@ async function deleteMed(i){
   updateRings();
 }
 
-async function updateMedTime(i, val){
+async function updateMedTime(i, j, val){
   if(!profile?.meds?.[i]) return;
-  profile.meds[i].time = val;
+  if(!profile.meds[i].times) profile.meds[i].times=['08:00'];
+  profile.meds[i].times[j]=val;
   await saveProfile();
   renderMedsToday();
+}
+async function addMedTime(i){
+  if(!profile?.meds?.[i]) return;
+  if(!profile.meds[i].times) profile.meds[i].times=['08:00'];
+  profile.meds[i].times.push('20:00');
+  await saveProfile();
+  renderMedsList();
+}
+async function deleteMedTime(i,j){
+  if(!profile?.meds?.[i]) return;
+  if(!profile.meds[i].times||profile.meds[i].times.length<=1) return;
+  profile.meds[i].times.splice(j,1);
+  await saveProfile();
+  renderMedsList();
 }
 
 async function toggleMedVisible(i, el){
@@ -1512,6 +1622,7 @@ async function finishOb(){
     schedule:obMealSched,
     vitamins:obData.vitamins,
     meds:[],
+    joinDate: new Date().toISOString().slice(0,10),
   };
   await saveProfile(); // also pushes schedule to server
   hideOb();
@@ -1530,6 +1641,101 @@ function hideOb(){
   const ob=document.getElementById('ob');
   ob.classList.add('hidden');
   setTimeout(()=>ob.style.display='none',350);
+}
+
+// ─── EDIT PROFILE ───
+let _epGoal='', _epSex='';
+function openEditProfile(){
+  if(!profile) return;
+  _epGoal=profile.goal||'';
+  _epSex=profile.sex||'';
+  document.getElementById('ep-name').value=profile.name||'';
+  document.getElementById('ep-age').value=profile.age||'';
+  // Goals
+  document.querySelectorAll('.ep-goal').forEach(el=>{
+    const g=el.getAttribute('onclick').match(/'([^']+)'/)?.[1];
+    el.classList.toggle('active', g===_epGoal);
+    el.querySelector('.ob-goal-check').style.background=g===_epGoal?'var(--green)':'';
+    el.querySelector('.ob-goal-check').style.borderColor=g===_epGoal?'var(--green)':'';
+    const icon=el.querySelector('.ob-goal-check i');
+    if(icon) icon.style.opacity=g===_epGoal?'1':'0';
+  });
+  // Sex
+  document.getElementById('ep-male').classList.toggle('active',_epSex==='male');
+  document.getElementById('ep-female').classList.toggle('active',_epSex==='female');
+  document.getElementById('ep-ov').classList.add('open');
+}
+function closeEditProfile(){ document.getElementById('ep-ov').classList.remove('open'); }
+function epPickGoal(g,el){
+  _epGoal=g;
+  document.querySelectorAll('.ep-goal').forEach(x=>{
+    const xg=x.getAttribute('onclick').match(/'([^']+)'/)?.[1];
+    x.classList.toggle('active',xg===g);
+    x.querySelector('.ob-goal-check').style.background=xg===g?'var(--green)':'';
+    x.querySelector('.ob-goal-check').style.borderColor=xg===g?'var(--green)':'';
+    const icon=x.querySelector('.ob-goal-check i');
+    if(icon) icon.style.opacity=xg===g?'1':'0';
+  });
+}
+function epPickSex(s,el){
+  _epSex=s;
+  document.getElementById('ep-male').classList.toggle('active',s==='male');
+  document.getElementById('ep-female').classList.toggle('active',s==='female');
+}
+async function saveEditProfile(){
+  const name=document.getElementById('ep-name').value.trim();
+  const age=parseInt(document.getElementById('ep-age').value)||profile.age;
+  if(!name){alert('Введи имя');return;}
+  profile.name=name;
+  if(_epGoal) profile.goal=_epGoal;
+  if(_epSex) profile.sex=_epSex;
+  if(age) profile.age=age;
+  await saveProfile();
+  closeEditProfile();
+  renderProfile();
+  renderDate();
+}
+
+// ─── CUSTOM MEAL ───
+function openCustomMealModal(){
+  document.getElementById('cm-name').value='';
+  document.getElementById('cm-time').value='11:00';
+  _selCmIcon='ph-bowl-food';
+  const el=document.getElementById('cm-icons');
+  el.innerHTML=CUSTOM_MEAL_ICONS.map(ic=>`<div class="icon-opt ${ic===_selCmIcon?'sel':''}" onclick="selCmIcon('${ic}',this)"><i class="ph ${ic}"></i></div>`).join('');
+  document.getElementById('cm-ov').classList.add('open');
+}
+function closeCustomMealModal(){ document.getElementById('cm-ov').classList.remove('open'); }
+function selCmIcon(ic,el){
+  _selCmIcon=ic;
+  document.querySelectorAll('.icon-opt').forEach(x=>x.classList.remove('sel'));
+  el.classList.add('sel');
+}
+async function saveCustomMeal(){
+  const name=document.getElementById('cm-name').value.trim();
+  const time=document.getElementById('cm-time').value;
+  if(!name){alert('Введи название');return;}
+  if(!profile.schedule) profile.schedule=buildDefaultSchedule(profile.breakfastTime||'08:00');
+  const id='custom_'+Date.now();
+  profile.schedule.push({id, name, time, enabled:true, icon:_selCmIcon, isCustom:true});
+  // Sort schedule by time
+  profile.schedule.sort((a,b)=>{
+    const tm=t=>{const[h,m]=t.split(':').map(Number);return h*60+m;};
+    return tm(a.time)-tm(b.time);
+  });
+  await saveProfile();
+  closeCustomMealModal();
+  renderMealScheduleList();
+  renderMeals();
+  updateRings();
+}
+async function deleteCustomMeal(id){
+  if(!profile?.schedule) return;
+  profile.schedule=profile.schedule.filter(m=>m.id!==id);
+  await saveProfile();
+  renderMealScheduleList();
+  renderMeals();
+  updateRings();
 }
 
 function restartOnboarding(){
@@ -1554,7 +1760,7 @@ function renderMedsToday(){
     return `<div class="meal-card ${done?'done':''}">
       <div class="meal-hdr" onclick="">
         <div class="meal-ico" style="background:${bg}"><i class="ph ph-pill" style="color:${col}"></i></div>
-        <div style="flex:1"><div class="meal-name">${med.name}</div><div class="meal-time-lbl">${med.time}${med.dose?' · '+med.dose:''}</div></div>
+        <div style="flex:1"><div class="meal-name">${med.name}</div><div class="meal-time-lbl">${(med.times||[med.time||'']).join(', ')}${med.dose?' · '+med.dose:''}</div></div>
         <div class="meal-check ${done?'on':''}" onclick="event.stopPropagation();toggleMed(${i})"><i class="ph ph-check"></i></div>
       </div>
     </div>`;
@@ -1580,18 +1786,6 @@ function loadApp(){
 
 // ─── INIT ───
 async function init(){
-  // Bootstrap _resolvedUid from CloudStorage before anything else.
-  // Handles Telegram Desktop where initData is empty and TG_USER.id is 0.
-  if(!_resolvedUid) {
-    try {
-      const stored = await CS.get('_uid');
-      if(stored) _resolvedUid = stored;
-    } catch(e) {}
-  } else {
-    // On mobile/valid session — persist for future Desktop use
-    try { await CS.set('_uid', _resolvedUid); } catch(e) {}
-  }
-
   await loadAll();
   if(!profile){
     document.getElementById('ob').style.display='flex';
