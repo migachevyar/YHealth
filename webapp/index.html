@@ -602,6 +602,7 @@ async function saveProfile() {
     }
     if(uid) { try { await CS.set('_uid', uid); } catch(e) {} }
     if(!uid) { console.warn('[saveProfile] no uid, skip server save'); return; }
+    console.log('[saveProfile] sending uid=' + uid + ' api=' + API);
     const res = await fetch(API + '/api/profile', {
       method: 'POST',
       headers: {'Content-Type': 'application/json', 'X-Init-Data': initData},
@@ -610,7 +611,7 @@ async function saveProfile() {
     const json = await res.json();
     console.log('[saveProfile] server response:', JSON.stringify(json));
   } catch(e) {
-    console.error('[saveProfile] fetch failed:', e.message);
+    console.error('[saveProfile] fetch failed:', e.message, 'uid=' + uid + ' api=' + API);
   }
 }
 async function saveWeights(){ await CS.set('weights', weights); }
