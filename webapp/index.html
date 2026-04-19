@@ -479,7 +479,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Inter'
 const tg = window.Telegram?.WebApp;
 const TG_USER = tg?.initDataUnsafe?.user || {};
 const INIT_DATA = tg?.initData || '';
-const API = '__WEBAPP_URL__';
+const API = '__WEBAPP_URL__'.split('?')[0];
 let _resolvedUid = TG_USER.id || 0;
 if(tg){
   tg.expand(); tg.ready();
@@ -592,17 +592,17 @@ async function pushScheduleToServer() {
 
 async function saveProfile() {
   try { await CS.set('profile', profile); } catch(e) {}
+  let uid = 0;
   try {
     const tgweb = window.Telegram?.WebApp;
     const initData = tgweb?.initData || INIT_DATA || '';
     const user = tgweb?.initDataUnsafe?.user;
-    let uid = user?.id || _resolvedUid || 0;
+    uid = user?.id || _resolvedUid || 0;
     if(!uid) {
       try { const s = await CS.get('_uid'); if(s){ uid = s; _resolvedUid = s; } } catch(e) {}
     }
     if(uid) { try { await CS.set('_uid', uid); } catch(e) {} }
     if(!uid) { console.warn('[saveProfile] no uid, skip server save'); return; }
-    console.log('[saveProfile] sending uid=' + uid + ' api=' + API);
     const res = await fetch(API + '/api/profile', {
       method: 'POST',
       headers: {'Content-Type': 'application/json', 'X-Init-Data': initData},
@@ -611,7 +611,7 @@ async function saveProfile() {
     const json = await res.json();
     console.log('[saveProfile] server response:', JSON.stringify(json));
   } catch(e) {
-    console.error('[saveProfile] fetch failed:', e.message, 'uid=' + uid + ' api=' + API);
+    console.error('[saveProfile] fetch failed:', e.message);
   }
 }
 async function saveWeights(){ await CS.set('weights', weights); }
