@@ -172,6 +172,14 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Inter'
 .med-time-row{display:flex;align-items:center;gap:7px;margin-bottom:5px}
 .med-time-minus{width:22px;height:22px;border-radius:50%;background:var(--bg4);border:none;color:var(--text3);cursor:pointer;font-size:16px;line-height:1;display:flex;align-items:center;justify-content:center;font-family:inherit;flex-shrink:0}
 .med-add-time{color:var(--blue);font-size:12px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:5px;padding:2px 0 4px}
+/* Swipe-to-delete */
+.swipe-row{position:relative;overflow:hidden}
+.swipe-content{display:flex;align-items:center;gap:11px;padding:12px 13px;transition:transform .25s cubic-bezier(.4,0,.2,1);will-change:transform;background:var(--card)}
+.swipe-content.med-header{padding:11px 13px}
+.swipe-delete-btn{position:absolute;right:0;top:0;bottom:0;width:72px;background:var(--red);display:flex;align-items:center;justify-content:center;cursor:pointer;transform:translateX(72px);transition:transform .25s cubic-bezier(.4,0,.2,1)}
+.swipe-delete-btn i{font-size:20px;color:#fff}
+.swipe-row.open .swipe-content{transform:translateX(-72px)}
+.swipe-row.open .swipe-delete-btn{transform:translateX(0)}
 /* Edit profile modal */
 .ep-goal{display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--bg3);border-radius:11px;cursor:pointer;border:1.5px solid transparent;margin-bottom:6px;transition:all .18s}
 .ep-goal.active{border-color:rgba(47,209,88,.4);background:rgba(47,209,88,.07)}
@@ -849,7 +857,7 @@ function setRing(id, pct){
 
 function updateRings(){
   const sched = getMealSchedule().filter(m=>m.enabled);
-  const vits = getActiveVits();
+  const vits = profile?.vitamins ? VITS_ALL.filter(v=>profile.vitamins.includes(v.id)) : [];
   const wGoal = 2.5;
 
   const mDone = sched.filter(m=>dayState.meals?.[m.id]).length;
@@ -897,20 +905,12 @@ async function toggleBot(i){
 function renderMeals(){
   const el=document.getElementById('meals-list'); if(!el) return;
   const sched=getMealSchedule().filter(m=>m.enabled);
-  const DEFAULT_IDS=['water','breakfast','snack1','lunch','snack2','dinner'];
-  const stdColors={water:'var(--blue)',breakfast:'var(--orange)',snack1:'var(--green)',lunch:'var(--teal)',snack2:'var(--orange)',dinner:'var(--purple)'};
-  const stdBgs={water:'var(--blue3)',breakfast:'var(--orange3)',snack1:'var(--green3)',lunch:'var(--teal3)',snack2:'var(--orange3)',dinner:'var(--purple3)'};
-  let customIdx=0;
   el.innerHTML=sched.map(m=>{
     const done=!!(dayState.meals?.[m.id]);
-    const isCustom=!DEFAULT_IDS.includes(m.id);
-    const col = m.color||(isCustom?CUSTOM_MEAL_COLORS[customIdx%CUSTOM_MEAL_COLORS.length]:stdColors[m.id]||'var(--green)');
-    const bg  = m.bg||(isCustom?CUSTOM_MEAL_BGS[customIdx%CUSTOM_MEAL_BGS.length]:stdBgs[m.id]||'var(--green3)');
-    if(isCustom) customIdx++;
     const sugs = ['snack1','snack2'].includes(m.id)?getDailySuggestions('snack'):getDailySuggestions(m.id);
     return `<div class="meal-card ${done?'done':''}" id="mc-${m.id}">
       <div class="meal-hdr" onclick="toggleMealDetail('${m.id}')">
-        <div class="meal-ico" style="background:${bg}"><i class="ph ${m.icon||'ph-bowl-food'}" style="color:${col}"></i></div>
+        <div class="meal-ico" style="background:${m.bg}"><i class="ph ${m.icon}" style="color:${m.color}"></i></div>
         <div style="flex:1;min-width:0"><div class="meal-name">${m.name}</div><div class="meal-time-lbl">${m.time}</div></div>
         <div class="meal-check ${done?'on':''}" id="mch-${m.id}" onclick="event.stopPropagation();toggleMeal('${m.id}')"><i class="ph ph-check"></i></div>
       </div>
@@ -1222,18 +1222,26 @@ function renderMealScheduleList(){
     const ciIdx=sched.filter((x,xi)=>!DEFAULT_IDS.includes(x.id)&&xi<=idx).length-1;
     const col=isCustom?CUSTOM_MEAL_COLORS[ciIdx%CUSTOM_MEAL_COLORS.length]:(colors[m.id]||'var(--green)');
     const bg=isCustom?CUSTOM_MEAL_BGS[ciIdx%CUSTOM_MEAL_BGS.length]:(bgs[m.id]||'var(--green3)');
-    return `<div class="p-row">
+    const inner=`
       <div class="p-row-ico" style="background:${bg}"><i class="ph ${ico}" style="color:${col}"></i></div>
       <span class="p-row-label">${m.name}</span>
       <input type="time" value="${m.time}" class="p-time-input" style="margin-right:8px" onchange="debounceMealTime('${m.id}',this.value)"/>
-      ${isCustom
-        ? `<div class="ntoggle ${on?'on':''}" onclick="toggleMealEnabled('${m.id}',this)" style="margin-right:8px"><div class="ntoggle-knob"></div></div><span onclick="deleteCustomMeal('${m.id}')" style="color:var(--text3);cursor:pointer;padding:4px"><i class="ph ph-trash" style="font-size:15px"></i></span>`
-        : `<div class="ntoggle ${on?'on':''}" onclick="toggleMealEnabled('${m.id}',this)"><div class="ntoggle-knob"></div></div>`
-      }
-    </div>`;
+      <div class="ntoggle ${on?'on':''}" onclick="toggleMealEnabled('${m.id}',this)"><div class="ntoggle-knob"></div></div>`;
+    if(isCustom){
+      return `<div class="swipe-row" data-meal-id="${m.id}">
+        <div class="swipe-content">${inner}</div>
+        <div class="swipe-delete-btn"><i class="ph ph-trash"></i></div>
+      </div>`;
+    }
+    return `<div class="p-row">${inner}</div>`;
   }).join('')
   +`<div class="add-btn" onclick="openCustomMealModal()"><i class="ph ph-plus-circle" style="font-size:20px"></i>Добавить приём</div>`
   +`<div style="padding:0 13px 8px"><button class="reset-btn" onclick="resetSchedule()">↺ Сбросить по умолчанию</button></div>`;
+  // Wire swipe-to-delete for custom meals
+  el.querySelectorAll('.swipe-row[data-meal-id]').forEach(row=>{
+    const id=row.dataset.mealId;
+    initSwipeDelete(row, ()=>deleteCustomMeal(id));
+  });
 }
 
 let _mealTimeTimer = {};
@@ -1383,11 +1391,13 @@ function renderMedsList(){
         ${times.length>1?`<button class="med-time-minus" onclick="deleteMedTime(${i},${j})">−</button>`:''}
       </div>`).join('');
     h+=`<div class="med-block">
-      <div class="med-header">
-        <div class="p-row-ico" style="background:${bg}"><i class="ph ph-pill" style="color:${col}"></i></div>
-        <div style="flex:1"><div class="p-row-label">${med.name}</div><div style="font-size:11px;color:var(--text3)">${med.dose}</div></div>
-        <div class="ntoggle ${hidden?'':'on'}" style="margin-right:8px" onclick="toggleMedVisible(${i},this)"><div class="ntoggle-knob"></div></div>
-        <span onclick="deleteMed(${i})" style="color:var(--text3);cursor:pointer;padding:4px"><i class="ph ph-trash" style="font-size:15px"></i></span>
+      <div class="swipe-row" data-med-idx="${i}">
+        <div class="swipe-content med-header">
+          <div class="p-row-ico" style="background:${bg}"><i class="ph ph-pill" style="color:${col}"></i></div>
+          <div style="flex:1"><div class="p-row-label">${med.name}</div><div style="font-size:11px;color:var(--text3)">${med.dose}</div></div>
+          <div class="ntoggle ${hidden?'':'on'}" onclick="toggleMedVisible(${i},this)"><div class="ntoggle-knob"></div></div>
+        </div>
+        <div class="swipe-delete-btn"><i class="ph ph-trash"></i></div>
       </div>
       <div class="med-times-body">
         ${timesHtml}
@@ -1397,6 +1407,11 @@ function renderMedsList(){
   });
   h+=`<div class="add-btn" onclick="openMedModal()"><i class="ph ph-plus-circle" style="font-size:20px"></i>Добавить лекарство</div>`;
   el.innerHTML=h;
+  // Wire swipe-to-delete for meds
+  el.querySelectorAll('.swipe-row[data-med-idx]').forEach(row=>{
+    const i=parseInt(row.dataset.medIdx);
+    initSwipeDelete(row, ()=>deleteMed(i));
+  });
 }
 
 function _renderMedTimesModal(){
@@ -1731,10 +1746,7 @@ async function saveCustomMeal(){
   if(!name){alert('Введи название');return;}
   if(!profile.schedule) profile.schedule=buildDefaultSchedule(profile.breakfastTime||'08:00');
   const id='custom_'+Date.now();
-  const customCount=(profile.schedule||[]).filter(m=>m.isCustom).length;
-  const col=CUSTOM_MEAL_COLORS[customCount%CUSTOM_MEAL_COLORS.length];
-  const bg=CUSTOM_MEAL_BGS[customCount%CUSTOM_MEAL_BGS.length];
-  profile.schedule.push({id, name, time, enabled:true, icon:_selCmIcon, isCustom:true, color:col, bg});
+  profile.schedule.push({id, name, time, enabled:true, icon:_selCmIcon, isCustom:true});
   // Sort schedule by time
   profile.schedule.sort((a,b)=>{
     const tm=t=>{const[h,m]=t.split(':').map(Number);return h*60+m;};
@@ -1759,6 +1771,73 @@ function restartOnboarding(){
   obData={ name:'', goal:'', sex:'', age:null, weight:null, height:null, vitamins:[], schedule:null };
   showOb();
 }
+
+// ─── SWIPE TO DELETE ───
+let _swipeActive = null; // currently open swipe row
+
+function initSwipeDelete(rowEl, onDelete) {
+  let startX = 0, startY = 0, dx = 0, swiping = false, locked = false;
+  const THRESHOLD = 48; // px to trigger open state
+
+  rowEl.addEventListener('touchstart', e => {
+    startX = e.touches[0].clientX;
+    startY = e.touches[0].clientY;
+    dx = 0; swiping = false; locked = false;
+  }, { passive: true });
+
+  rowEl.addEventListener('touchmove', e => {
+    if (locked) return;
+    dx = e.touches[0].clientX - startX;
+    const dy = e.touches[0].clientY - startY;
+    // If vertical scroll is dominant, lock out swipe
+    if (!swiping && Math.abs(dy) > Math.abs(dx) + 5) { locked = true; return; }
+    if (Math.abs(dx) > 6) swiping = true;
+    if (!swiping) return;
+    e.preventDefault();
+    // Only allow left swipe (dx < 0) or right swipe to close
+    const isOpen = rowEl.classList.contains('open');
+    const offset = isOpen ? Math.min(0, -72 + Math.max(dx, -20)) : Math.min(0, Math.max(dx, -72));
+    const content = rowEl.querySelector('.swipe-content');
+    const btn = rowEl.querySelector('.swipe-delete-btn');
+    if (content) content.style.transition = 'none';
+    if (btn) btn.style.transition = 'none';
+    if (content) content.style.transform = `translateX(${offset}px)`;
+    if (btn) btn.style.transform = `translateX(${72 + offset}px)`;
+  }, { passive: false });
+
+  rowEl.addEventListener('touchend', () => {
+    if (locked || !swiping) return;
+    const content = rowEl.querySelector('.swipe-content');
+    const btn = rowEl.querySelector('.swipe-delete-btn');
+    if (content) content.style.transition = '';
+    if (btn) btn.style.transition = '';
+    if (content) content.style.transform = '';
+    if (btn) btn.style.transform = '';
+
+    const isOpen = rowEl.classList.contains('open');
+    if (!isOpen && dx < -THRESHOLD) {
+      // Close any other open row first
+      if (_swipeActive && _swipeActive !== rowEl) _swipeActive.classList.remove('open');
+      rowEl.classList.add('open');
+      _swipeActive = rowEl;
+    } else if (isOpen && dx > THRESHOLD / 2) {
+      rowEl.classList.remove('open');
+      if (_swipeActive === rowEl) _swipeActive = null;
+    }
+  });
+
+  // Delete button
+  const btn = rowEl.querySelector('.swipe-delete-btn');
+  if (btn) btn.addEventListener('click', e => { e.stopPropagation(); onDelete(); });
+}
+
+// Close any open swipe row when tapping elsewhere
+document.addEventListener('touchstart', e => {
+  if (_swipeActive && !_swipeActive.contains(e.target)) {
+    _swipeActive.classList.remove('open');
+    _swipeActive = null;
+  }
+}, { passive: true });
 
 // ─── MAIN APP RENDER ───
 function renderMedsToday(){
