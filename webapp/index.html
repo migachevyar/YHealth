@@ -849,7 +849,7 @@ function setRing(id, pct){
 
 function updateRings(){
   const sched = getMealSchedule().filter(m=>m.enabled);
-  const vits = profile?.vitamins ? VITS_ALL.filter(v=>profile.vitamins.includes(v.id)) : [];
+  const vits = getActiveVits();
   const wGoal = 2.5;
 
   const mDone = sched.filter(m=>dayState.meals?.[m.id]).length;

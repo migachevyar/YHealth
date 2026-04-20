@@ -26,11 +26,83 @@ MEAL_ICONS = {
     "lunch":"🥗", "snack2":"🍎", "dinner":"🐟",
 }
 
+# ── Creative message pools ─────────────────────────────────────────────────────
+MEAL_MESSAGES = {
+    "water": [
+        ("💧 Время пить воду!", "Факт: 60% тела — это вода. Ты буквально наполнен жизнью 🌊"),
+        ("💧 Стакан воды = быстрый перезапуск", "Обезвоживание на 2% снижает концентрацию на 20%. Один глоток — и мозг скажет спасибо 🧠"),
+        ("💧 Пора сделать глоток!", "Кожа, мышцы, суставы — всё работает лучше, когда ты пьёшь воду. Твоё тело уже ждёт 😊"),
+        ("💧 Hydration check!", "Кофе не считается. Вода считается. Давай, один стакан — и ты красавчик 💪"),
+        ("💧 Вода — лучший энергетик", "Усталость часто = жажда. Попробуй выпить воды прямо сейчас, и посмотри как изменится самочувствие ✨"),
+    ],
+    "breakfast": [
+        ("🌅 Доброе утро!", "Завтрак запускает метаболизм и повышает концентрацию на весь день. Позволь себе поесть по-человечески 🍳\n\n✨ Приятного аппетита!"),
+        ("☀️ Время завтракать!", "Люди, которые завтракают регулярно, в среднем стройнее и энергичнее. Ты уже делаешь всё правильно 🙌\n\n✨ Наслаждайся каждым кусочком!"),
+        ("🌄 Утро начинается с еды!", "Без завтрака мозг буквально экономит энергию — это и есть та \"утренняя туманность\". Заправься и начни день на полную 🚀\n\n✨ Bon appétit!"),
+        ("🍳 Завтрак подан!", "Совет: добавь белок с утра (яйца, творог, греческий йогурт) — он даст насыщение на 3–4 часа и уберёт тягу к сладкому 💡\n\n✨ Приятного аппетита!"),
+        ("🌻 Заряди себя с утра!", "Завтрак — это инвестиция в продуктивность. Причём с гарантированным возвратом 📈\n\n✨ Ешь с удовольствием!"),
+    ],
+    "snack1": [
+        ("🥜 Перекус #1 — не пропускай!", "Небольшой перекус между завтраком и обедом стабилизирует сахар в крови и не даёт переесть в обед 🎯"),
+        ("🍏 Время лёгкого перекуса!", "Орехи, фрукт, творог — 15 минут еды сейчас сэкономят тебе 2 часа голодного раздражения потом 😄"),
+        ("🥜 Перекус — это не слабость!", "Это стратегия. Спортсмены едят 4–6 раз в день. Ты тоже спортсмен — просто ещё не все об этом знают 💪"),
+        ("🍇 Мини-дозаправка!", "Совет: перекус с клетчаткой + белком (яблоко + орехи, морковь + хумус) держит сытость вдвое дольше 🌱"),
+        ("🌰 Время для перекуса!", "Факт: люди, которые делают запланированные перекусы, потребляют меньше калорий за день в целом. Парадокс? Нет, физиология 🔬"),
+    ],
+    "lunch": [
+        ("🥗 Обед — дело серьёзное!", "Совет: сначала съешь овощи/салат, потом белок, потом углеводы. Сахар поднимется плавно, энергия будет ровной 📊\n\n✨ Приятного аппетита!"),
+        ("🍽 Время обеда!", "Люди, которые едят обед медленно (20+ минут), потребляют на 15% меньше калорий. Жуй, наслаждайся, не торопись 🧘\n\n✨ Bon appétit!"),
+        ("🥗 Обед — заряд на вторую половину дня!", "Хороший обед = углеводы (энергия) + белок (восстановление) + жиры (гормоны). Твой организм — высокоточная машина 🏎\n\n✨ Приятного аппетита!"),
+        ("🌿 Пора пообедать!", "Совет дня: не ешь за рабочим столом. Даже 10-минутный перерыв снижает стресс и улучшает пищеварение 🌿\n\n✨ Ешь с удовольствием!"),
+        ("🥘 Обеденный перерыв!", "Факт: пропуск обеда повышает кортизол (гормон стресса) и снижает силу воли ближе к вечеру. Поешь — и ты будешь сильнее 💡\n\n✨ Приятного аппетита!"),
+    ],
+    "snack2": [
+        ("🍎 Перекус #2 — держим темп!", "До ужина ещё далеко. Небольшой перекус сейчас — и ты придёшь за стол без зверского голода 🎯"),
+        ("🫐 Время для второго перекуса!", "Ягоды, фрукты, йогурт — лёгкий перекус сейчас не даст переесть вечером. Это работает, проверено 📌"),
+        ("🍊 Полдник!", "Совет: фрукты лучше есть отдельно от основного приёма пищи или хотя бы через час после. Так и усваивается лучше, и живот доволен 🙂"),
+        ("🥛 Время перекусить!", "Греческий йогурт, творог, горсть орехов — быстро, вкусно, и держит тебя до ужина без срывов 💪"),
+        ("🍏 Мини-заправка перед вечером!", "Факт: вечерние срывы почти всегда из-за пропущенного дневного перекуса. Ешь сейчас — побеждай вечером 🏆"),
+    ],
+    "dinner": [
+        ("🌙 Ужин — финальный аккорд дня!", "Совет: лёгкий ужин за 2–3 часа до сна улучшает качество сна и восстановление. Твоё тело скажет спасибо утром 🌟\n\n✨ Приятного аппетита!"),
+        ("🐟 Время ужинать!", "Белок на ужин (рыба, курица, творог) питает мышцы всю ночь. Тело восстанавливается, пока ты спишь 💪\n\n✨ Bon appétit!"),
+        ("🌆 Вечерний ритуал — ужин!", "Ешь без гаджетов хотя бы иногда. Осознанный приём пищи снижает переедание и улучшает отношение с едой 🧘\n\n✨ Приятного аппетита!"),
+        ("🫚 Ужин подан!", "Совет: добавь овощи к ужину. Клетчатка накормит полезные бактерии кишечника, и они отблагодарят тебя хорошим настроением завтра 🌱\n\n✨ Ешь медленно и с удовольствием!"),
+        ("🌙 Финальный приём пищи!", "Не бойся жиров на ужин (авокадо, орехи, оливковое масло) — они нужны для синтеза гормонов и восстановления клеток 🔬\n\n✨ Приятного аппетита!"),
+    ],
+}
+
+VIT_FACTS = {
+    "omega":     "🐟 Омега-3 снижает воспаление, улучшает память и поддерживает сердце",
+    "vitd":      "☀️ Витамин D3 — гормон солнца. Влияет на иммунитет, настроение и кости",
+    "vitc":      "🍊 Витамин C усиливает иммунитет и помогает усваивать железо",
+    "vitb12":    "⚡ B12 — топливо для нервной системы и производства энергии",
+    "creatine":  "💪 Креатин увеличивает силу и ускоряет восстановление после тренировок",
+    "magnesium": "😴 Магний расслабляет мышцы, снижает стресс и улучшает сон",
+    "zinc":      "🛡 Цинк — щит иммунитета и помощник в заживлении",
+    "calcium":   "🦴 Кальций строит кости и поддерживает работу сердца",
+    "iron":      "🩸 Железо переносит кислород. Без него — усталость и туман в голове",
+    "probiotics":"🦠 Пробиотики кормят полезные бактерии. Кишечник = второй мозг",
+}
+
+MED_MESSAGES = [
+    "Не забудь про лекарства — это важная часть твоего ритуала заботы о себе 💙",
+    "Постоянство в приёме лекарств — это суперсила. Так держать 🌟",
+    "Небольшое напоминание, большая польза для здоровья 💊",
+    "Твоё тело знает, когда ты о нём заботишься. Вот прямо сейчас — хороший момент 🤍",
+]
+
 # uid (str) → chat_id (int) — populated on /start so auto-rebuild needs no /remind
 _chat: dict[str, int] = {}
 
 
 # ── Build reminders ───────────────────────────────────────────────────────────
+def _pick(pool: list, seed: int) -> any:
+    """Deterministically pick from pool by day-of-year so it varies daily."""
+    day = datetime.now().timetuple().tm_yday
+    return pool[(day + seed) % len(pool)]
+
+
 def build_reminders(profile: dict) -> list[dict]:
     """Return [{time:'HH:MM', text:str}] sorted by time."""
     if not profile:
@@ -71,7 +143,13 @@ def build_reminders(profile: dict) -> list[dict]:
         "iron": m2t(t2m(bf) - 30), "probiotics": m2t(t2m(bf) - 30),
     }
 
-    events: dict[str, list[str]] = {}
+    # slot_data[time] = {meals:[], vits:[], meds:[]}
+    slots: dict[str, dict] = {}
+
+    def get_slot(t: str) -> dict:
+        if t not in slots:
+            slots[t] = {"meals": [], "vits": [], "meds": []}
+        return slots[t]
 
     # Meals
     for meal in sched_list:
@@ -79,18 +157,15 @@ def build_reminders(profile: dict) -> list[dict]:
         if not meal.get("enabled", True): continue
         t = meal.get("time", "")
         if not t: continue
-        ico  = MEAL_ICONS.get(meal.get("id", ""), "🍽")
-        name = meal.get("name", "")
-        events.setdefault(t, []).append(f"{ico} {name}")
+        get_slot(t)["meals"].append(meal)
 
-    # Vitamins
-    for vid in vit_list:
-        if vid in vit_hidden: continue
-        t    = vit_times.get(vid) or VIT_DEFAULTS.get(vid, bf)
-        name = VIT_NAMES.get(vid, vid)
-        events.setdefault(t, []).append(f"💊 {name}")
+    # Active vitamins (excluding hidden)
+    active_vits = [v for v in vit_list if v not in vit_hidden]
+    for idx, vid in enumerate(active_vits):
+        t = vit_times.get(vid) or VIT_DEFAULTS.get(vid, bf)
+        get_slot(t)["vits"].append((idx, vid))
 
-    # Meds — supports old {time} and new {times:[]} formats
+    # Meds
     for i, med in enumerate(meds_list):
         if not isinstance(med, dict): continue
         if i in meds_hidden: continue
@@ -98,12 +173,46 @@ def build_reminders(profile: dict) -> list[dict]:
         times = med.get("times") or ([med["time"]] if med.get("time") else [])
         for t in times:
             if not t: continue
-            events.setdefault(t, []).append(f"💉 {name}")
+            get_slot(t)["meds"].append(name)
 
     reminders = []
-    for t, lines in sorted(events.items()):
-        body = "\n".join(lines)
-        reminders.append({"time": t, "text": f"⏰ {t}\n{body}"})
+    for t, slot in sorted(slots.items()):
+        parts = []
+
+        # ── Meals block ──
+        for meal in slot["meals"]:
+            mid  = meal.get("id", "")
+            name = meal.get("name", "")
+            pool = MEAL_MESSAGES.get(mid)
+            if pool:
+                seed = list(MEAL_MESSAGES.keys()).index(mid) if mid in MEAL_MESSAGES else 0
+                title, tip = _pick(pool, seed)
+                parts.append(f"{title}\n{name}\n\n{tip}")
+            else:
+                ico = MEAL_ICONS.get(mid, "🍽")
+                parts.append(f"{ico} {name}")
+
+        # ── Vitamins block ──
+        if slot["vits"]:
+            vit_lines = []
+            for idx, vid in slot["vits"]:
+                name = VIT_NAMES.get(vid, vid)
+                fact = VIT_FACTS.get(vid, "")
+                vit_lines.append(f"• {name}" + (f"\n  _{fact}_" if fact else ""))
+            header = "💊 *Витамины:*" if len(slot["vits"]) > 1 else "💊 *Витамин:*"
+            parts.append(header + "\n" + "\n".join(vit_lines))
+
+        # ── Meds block ──
+        if slot["meds"]:
+            med_tip = _pick(MED_MESSAGES, len(slot["meds"]))
+            med_lines = "\n".join(f"• {m}" for m in slot["meds"])
+            parts.append(f"💉 *Лекарства:*\n{med_lines}\n\n{med_tip}")
+
+        if not parts:
+            continue
+
+        text = f"⏰ *{t}*\n\n" + "\n\n".join(parts)
+        reminders.append({"time": t, "text": text})
 
     return reminders
 
@@ -137,21 +246,12 @@ def _schedule_jobs(jq, chat_id: int, reminders: list[dict]):
         target_utc_today = now_utc.replace(hour=utc_h, minute=utc_m, second=0, microsecond=0)
         local_now_mins   = (now_utc + tz_delta).hour * 60 + (now_utc + tz_delta).minute
         local_rem_mins   = lh * 60 + lm
-        passed_secs      = (now_utc - target_utc_today).total_seconds()
 
         if target_utc_today <= now_utc and local_rem_mins > local_now_mins:
             # Case 1: UTC crossed midnight but local time hasn't — fire today
             jq.run_once(
                 send_reminder,
                 when=target_utc_today + timedelta(days=1),
-                data={"chat_id": chat_id, "text": r["text"], "local_time": r["time"]},
-            )
-        elif 0 < passed_secs <= 300:
-            # Case 2: reminder just passed within last 5 min (e.g. /remind called
-            # seconds after the scheduled time) — fire immediately
-            jq.run_once(
-                send_reminder,
-                when=3,
                 data={"chat_id": chat_id, "text": r["text"], "local_time": r["time"]},
             )
 
@@ -225,6 +325,7 @@ async def send_reminder(context: ContextTypes.DEFAULT_TYPE):
     await context.bot.send_message(
         chat_id=d["chat_id"],
         text=d["text"],
+        parse_mode="Markdown",
         reply_markup=InlineKeyboardMarkup(kb),
     )
 
