@@ -180,6 +180,13 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Inter'
 .swipe-delete-btn i{font-size:20px;color:#fff}
 .swipe-row.open .swipe-content{transform:translateX(-72px)}
 .swipe-row.open .swipe-delete-btn{transform:translateX(0)}
+/* Delete collapse animation */
+@keyframes swipe-collapse{
+  0%{max-height:200px;opacity:1;transform:scaleY(1)}
+  40%{opacity:0;transform:scaleX(0.95)}
+  100%{max-height:0;opacity:0;padding-top:0;padding-bottom:0;margin:0}
+}
+.swipe-row.deleting{animation:swipe-collapse .32s cubic-bezier(.4,0,.2,1) forwards;overflow:hidden;pointer-events:none}
 /* Edit profile modal */
 .ep-goal{display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--bg3);border-radius:11px;cursor:pointer;border:1.5px solid transparent;margin-bottom:6px;transition:all .18s}
 .ep-goal.active{border-color:rgba(47,209,88,.4);background:rgba(47,209,88,.07)}
@@ -857,7 +864,7 @@ function setRing(id, pct){
 
 function updateRings(){
   const sched = getMealSchedule().filter(m=>m.enabled);
-  const vits = profile?.vitamins ? VITS_ALL.filter(v=>profile.vitamins.includes(v.id)) : [];
+  const vits = getActiveVits();
   const wGoal = 2.5;
 
   const mDone = sched.filter(m=>dayState.meals?.[m.id]).length;
@@ -1826,9 +1833,13 @@ function initSwipeDelete(rowEl, onDelete) {
     }
   });
 
-  // Delete button
+  // Delete button — animate then call onDelete
   const btn = rowEl.querySelector('.swipe-delete-btn');
-  if (btn) btn.addEventListener('click', e => { e.stopPropagation(); onDelete(); });
+  if (btn) btn.addEventListener('click', e => {
+    e.stopPropagation();
+    rowEl.classList.add('deleting');
+    setTimeout(onDelete, 300);
+  });
 }
 
 // Close any open swipe row when tapping elsewhere
