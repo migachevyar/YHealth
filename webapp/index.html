@@ -374,7 +374,21 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Inter'
   <div class="modal">
     <div class="modal-title">Добавить лекарство</div>
     <input class="modal-input" id="med-name" placeholder="Название лекарства"/>
-    <input class="modal-input" id="med-dose" placeholder="Дозировка (напр: 1 таб.)"/>
+    <div style="display:flex;gap:8px;margin-bottom:10px">
+      <input class="modal-input" id="med-dose-amount" type="number" min="0.25" step="0.25" placeholder="Кол-во" style="width:90px;flex-shrink:0;margin-bottom:0"/>
+      <select class="modal-input" id="med-dose-unit" style="flex:1;margin-bottom:0;appearance:none;-webkit-appearance:none;background:var(--card);color:var(--text1)">
+        <option value="таблетка">Таблетка</option>
+        <option value="капсула">Капсула</option>
+        <option value="мл">мл</option>
+        <option value="мг">мг</option>
+        <option value="мкг">мкг</option>
+        <option value="г">г</option>
+        <option value="укол">Укол</option>
+        <option value="саше">Саше</option>
+        <option value="капли">Капли</option>
+        <option value="пластырь">Пластырь</option>
+      </select>
+    </div>
     <div class="ob-lbl" style="margin-bottom:8px">Приёмы</div>
     <div id="med-times-list"></div>
     <div class="add-btn" style="padding:2px 0 10px" onclick="addMedTimeRow()"><i class="ph ph-plus-circle" style="font-size:17px"></i>Добавить приём</div>
@@ -849,7 +863,7 @@ function setRing(id, pct){
 
 function updateRings(){
   const sched = getMealSchedule().filter(m=>m.enabled);
-  const vits = getActiveVits();
+  const vits = profile?.vitamins ? VITS_ALL.filter(v=>profile.vitamins.includes(v.id)) : [];
   const wGoal = 2.5;
 
   const mDone = sched.filter(m=>dayState.meals?.[m.id]).length;
@@ -1419,7 +1433,8 @@ function removeMedTimeRow(j){
 function openMedModal(){
   document.getElementById('med-ov').classList.add('open');
   document.getElementById('med-name').value='';
-  document.getElementById('med-dose').value='';
+  document.getElementById('med-dose-amount').value='';
+  document.getElementById('med-dose-unit').value='таблетка';
   document.getElementById('med-times-list').innerHTML=
     `<div class="med-time-row" style="margin-bottom:7px"><input type="time" value="08:00" class="modal-input" style="flex:1;margin-bottom:0"/></div>`;
 }
@@ -1429,7 +1444,9 @@ function closeMedModal(){
 
 async function saveMed(){
   const name=document.getElementById('med-name').value.trim();
-  const dose=document.getElementById('med-dose').value.trim();
+  const amount=parseFloat(document.getElementById('med-dose-amount').value)||0;
+  const unit=document.getElementById('med-dose-unit').value;
+  const dose=amount?(amount%1===0?amount+' '+unit:amount+' '+unit):'';
   const timeInputs=document.getElementById('med-times-list').querySelectorAll('input[type=time]');
   const times=[...timeInputs].map(i=>i.value).filter(Boolean);
   if(!name) return;

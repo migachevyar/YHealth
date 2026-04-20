@@ -85,12 +85,6 @@ VIT_FACTS = {
     "probiotics":"🦠 Пробиотики кормят полезные бактерии. Кишечник = второй мозг",
 }
 
-MED_MESSAGES = [
-    "Не забудь про лекарства — это важная часть твоего ритуала заботы о себе 💙",
-    "Постоянство в приёме лекарств — это суперсила. Так держать 🌟",
-    "Небольшое напоминание, большая польза для здоровья 💊",
-    "Твоё тело знает, когда ты о нём заботишься. Вот прямо сейчас — хороший момент 🤍",
-]
 
 # uid (str) → chat_id (int) — populated on /start so auto-rebuild needs no /remind
 _chat: dict[str, int] = {}
@@ -170,10 +164,12 @@ def build_reminders(profile: dict) -> list[dict]:
         if not isinstance(med, dict): continue
         if i in meds_hidden: continue
         name = med.get("name", "")
+        dose = med.get("dose", "")
+        label = f"{name} — {dose}" if dose else name
         times = med.get("times") or ([med["time"]] if med.get("time") else [])
         for t in times:
             if not t: continue
-            get_slot(t)["meds"].append(name)
+            get_slot(t)["meds"].append(label)
 
     reminders = []
     for t, slot in sorted(slots.items()):
@@ -187,7 +183,7 @@ def build_reminders(profile: dict) -> list[dict]:
             if pool:
                 seed = list(MEAL_MESSAGES.keys()).index(mid) if mid in MEAL_MESSAGES else 0
                 title, tip = _pick(pool, seed)
-                parts.append(f"{title}\n{name}\n\n{tip}")
+                parts.append(f"{title}\n\n{tip}")
             else:
                 ico = MEAL_ICONS.get(mid, "🍽")
                 parts.append(f"{ico} {name}")
@@ -204,15 +200,26 @@ def build_reminders(profile: dict) -> list[dict]:
 
         # ── Meds block ──
         if slot["meds"]:
-            med_tip = _pick(MED_MESSAGES, len(slot["meds"]))
             med_lines = "\n".join(f"• {m}" for m in slot["meds"])
-            parts.append(f"💉 *Лекарства:*\n{med_lines}\n\n{med_tip}")
+            parts.append(f"💉 *Лекарства:*\n{med_lines}")
 
         if not parts:
             continue
 
         text = f"⏰ *{t}*\n\n" + "\n\n".join(parts)
-        reminders.append({"time": t, "text": text})
+
+        # Clean summary for /remind command (no tips, just items)
+        summary_items = []
+        for meal in slot["meals"]:
+            ico = MEAL_ICONS.get(meal.get("id", ""), "🍽")
+            summary_items.append(f"{ico} {meal.get('name', '')}")
+        for _, vid in slot["vits"]:
+            summary_items.append(f"💊 {VIT_NAMES.get(vid, vid)}")
+        for m in slot["meds"]:
+            summary_items.append(f"💉 {m}")
+        summary = ", ".join(summary_items)
+
+        reminders.append({"time": t, "text": text, "summary": summary})
 
     return reminders
 
@@ -306,9 +313,7 @@ async def setup_reminders(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     lines = []
     for r in reminders:
-        # r["text"] is "⏰ HH:MM\n<items>" — extract items line
-        items_text = r["text"].split("\n", 1)[1] if "\n" in r["text"] else ""
-        lines.append(f"*{r['time']}* — {items_text.replace(chr(10), ', ')}")
+        lines.append(f"*{r['time']}* — {r['summary']}")
 
     msg = (
         f"✅ Напоминания включены — {len(reminders)} уведомлений\n"
