@@ -374,21 +374,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Inter'
   <div class="modal">
     <div class="modal-title">Добавить лекарство</div>
     <input class="modal-input" id="med-name" placeholder="Название лекарства"/>
-    <div style="display:flex;gap:8px;margin-bottom:10px">
-      <input class="modal-input" id="med-dose-amount" type="number" min="0.25" step="0.25" placeholder="Кол-во" style="width:90px;flex-shrink:0;margin-bottom:0"/>
-      <select class="modal-input" id="med-dose-unit" style="flex:1;margin-bottom:0;appearance:none;-webkit-appearance:none;background:var(--card);color:var(--text1)">
-        <option value="таблетка">Таблетка</option>
-        <option value="капсула">Капсула</option>
-        <option value="мл">мл</option>
-        <option value="мг">мг</option>
-        <option value="мкг">мкг</option>
-        <option value="г">г</option>
-        <option value="укол">Укол</option>
-        <option value="саше">Саше</option>
-        <option value="капли">Капли</option>
-        <option value="пластырь">Пластырь</option>
-      </select>
-    </div>
+    <input class="modal-input" id="med-dose" placeholder="Дозировка (напр: 1 таб.)"/>
     <div class="ob-lbl" style="margin-bottom:8px">Приёмы</div>
     <div id="med-times-list"></div>
     <div class="add-btn" style="padding:2px 0 10px" onclick="addMedTimeRow()"><i class="ph ph-plus-circle" style="font-size:17px"></i>Добавить приём</div>
@@ -863,7 +849,7 @@ function setRing(id, pct){
 
 function updateRings(){
   const sched = getMealSchedule().filter(m=>m.enabled);
-  const vits = profile?.vitamins ? VITS_ALL.filter(v=>profile.vitamins.includes(v.id)) : [];
+  const vits = getActiveVits();
   const wGoal = 2.5;
 
   const mDone = sched.filter(m=>dayState.meals?.[m.id]).length;
@@ -911,12 +897,20 @@ async function toggleBot(i){
 function renderMeals(){
   const el=document.getElementById('meals-list'); if(!el) return;
   const sched=getMealSchedule().filter(m=>m.enabled);
+  const DEFAULT_IDS=['water','breakfast','snack1','lunch','snack2','dinner'];
+  const stdColors={water:'var(--blue)',breakfast:'var(--orange)',snack1:'var(--green)',lunch:'var(--teal)',snack2:'var(--orange)',dinner:'var(--purple)'};
+  const stdBgs={water:'var(--blue3)',breakfast:'var(--orange3)',snack1:'var(--green3)',lunch:'var(--teal3)',snack2:'var(--orange3)',dinner:'var(--purple3)'};
+  let customIdx=0;
   el.innerHTML=sched.map(m=>{
     const done=!!(dayState.meals?.[m.id]);
+    const isCustom=!DEFAULT_IDS.includes(m.id);
+    const col = m.color||(isCustom?CUSTOM_MEAL_COLORS[customIdx%CUSTOM_MEAL_COLORS.length]:stdColors[m.id]||'var(--green)');
+    const bg  = m.bg||(isCustom?CUSTOM_MEAL_BGS[customIdx%CUSTOM_MEAL_BGS.length]:stdBgs[m.id]||'var(--green3)');
+    if(isCustom) customIdx++;
     const sugs = ['snack1','snack2'].includes(m.id)?getDailySuggestions('snack'):getDailySuggestions(m.id);
     return `<div class="meal-card ${done?'done':''}" id="mc-${m.id}">
       <div class="meal-hdr" onclick="toggleMealDetail('${m.id}')">
-        <div class="meal-ico" style="background:${m.bg}"><i class="ph ${m.icon}" style="color:${m.color}"></i></div>
+        <div class="meal-ico" style="background:${bg}"><i class="ph ${m.icon||'ph-bowl-food'}" style="color:${col}"></i></div>
         <div style="flex:1;min-width:0"><div class="meal-name">${m.name}</div><div class="meal-time-lbl">${m.time}</div></div>
         <div class="meal-check ${done?'on':''}" id="mch-${m.id}" onclick="event.stopPropagation();toggleMeal('${m.id}')"><i class="ph ph-check"></i></div>
       </div>
@@ -1233,7 +1227,7 @@ function renderMealScheduleList(){
       <span class="p-row-label">${m.name}</span>
       <input type="time" value="${m.time}" class="p-time-input" style="margin-right:8px" onchange="debounceMealTime('${m.id}',this.value)"/>
       ${isCustom
-        ? `<span onclick="deleteCustomMeal('${m.id}')" style="color:var(--text3);cursor:pointer;padding:4px;margin-right:2px"><i class="ph ph-trash" style="font-size:15px"></i></span>`
+        ? `<div class="ntoggle ${on?'on':''}" onclick="toggleMealEnabled('${m.id}',this)" style="margin-right:8px"><div class="ntoggle-knob"></div></div><span onclick="deleteCustomMeal('${m.id}')" style="color:var(--text3);cursor:pointer;padding:4px"><i class="ph ph-trash" style="font-size:15px"></i></span>`
         : `<div class="ntoggle ${on?'on':''}" onclick="toggleMealEnabled('${m.id}',this)"><div class="ntoggle-knob"></div></div>`
       }
     </div>`;
@@ -1433,8 +1427,7 @@ function removeMedTimeRow(j){
 function openMedModal(){
   document.getElementById('med-ov').classList.add('open');
   document.getElementById('med-name').value='';
-  document.getElementById('med-dose-amount').value='';
-  document.getElementById('med-dose-unit').value='таблетка';
+  document.getElementById('med-dose').value='';
   document.getElementById('med-times-list').innerHTML=
     `<div class="med-time-row" style="margin-bottom:7px"><input type="time" value="08:00" class="modal-input" style="flex:1;margin-bottom:0"/></div>`;
 }
@@ -1444,9 +1437,7 @@ function closeMedModal(){
 
 async function saveMed(){
   const name=document.getElementById('med-name').value.trim();
-  const amount=parseFloat(document.getElementById('med-dose-amount').value)||0;
-  const unit=document.getElementById('med-dose-unit').value;
-  const dose=amount?(amount%1===0?amount+' '+unit:amount+' '+unit):'';
+  const dose=document.getElementById('med-dose').value.trim();
   const timeInputs=document.getElementById('med-times-list').querySelectorAll('input[type=time]');
   const times=[...timeInputs].map(i=>i.value).filter(Boolean);
   if(!name) return;
@@ -1740,7 +1731,10 @@ async function saveCustomMeal(){
   if(!name){alert('Введи название');return;}
   if(!profile.schedule) profile.schedule=buildDefaultSchedule(profile.breakfastTime||'08:00');
   const id='custom_'+Date.now();
-  profile.schedule.push({id, name, time, enabled:true, icon:_selCmIcon, isCustom:true});
+  const customCount=(profile.schedule||[]).filter(m=>m.isCustom).length;
+  const col=CUSTOM_MEAL_COLORS[customCount%CUSTOM_MEAL_COLORS.length];
+  const bg=CUSTOM_MEAL_BGS[customCount%CUSTOM_MEAL_BGS.length];
+  profile.schedule.push({id, name, time, enabled:true, icon:_selCmIcon, isCustom:true, color:col, bg});
   // Sort schedule by time
   profile.schedule.sort((a,b)=>{
     const tm=t=>{const[h,m]=t.split(':').map(Number);return h*60+m;};
