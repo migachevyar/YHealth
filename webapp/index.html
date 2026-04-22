@@ -187,29 +187,6 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Inter'
   100%{max-height:0;opacity:0;padding-top:0;padding-bottom:0;margin:0}
 }
 .swipe-row.deleting{animation:swipe-collapse .32s cubic-bezier(.4,0,.2,1) forwards;overflow:hidden;pointer-events:none}
-/* Vitamin frequency sheet */
-.vit-freq-sheet{background:var(--card);border-radius:14px;overflow:hidden;margin:8px 0 4px}
-.vfs-hdr{padding:13px 14px 10px;border-bottom:.5px solid var(--border);display:flex;align-items:center;justify-content:space-between}
-.vfs-title{font-size:14px;font-weight:600}
-.vfs-close{font-size:17px;color:var(--text3);cursor:pointer;padding:2px 6px;line-height:1}
-.vfs-section{padding:11px 14px;border-bottom:.5px solid var(--border)}
-.vfs-lbl{font-size:11px;color:var(--text3);font-weight:600;margin-bottom:8px;letter-spacing:.3px;text-transform:uppercase}
-.freq-pills{display:flex;flex-wrap:wrap;gap:6px}
-.freq-pill{padding:6px 13px;border-radius:20px;border:.5px solid var(--border);background:var(--bg3);font-size:12px;color:var(--text2);cursor:pointer;font-family:inherit;font-weight:500;transition:all .18s}
-.freq-pill.on{background:rgba(10,132,255,0.15);border-color:var(--blue);color:var(--blue)}
-.freq-days{display:flex;gap:5px;margin-top:10px}
-.freq-day{width:34px;height:34px;border-radius:50%;border:.5px solid var(--border);background:var(--bg3);font-size:10px;font-weight:600;color:var(--text3);cursor:pointer;display:flex;align-items:center;justify-content:center;font-family:inherit;transition:all .18s;flex-shrink:0}
-.freq-day.on{background:rgba(10,132,255,0.18);border-color:var(--blue);color:var(--blue)}
-.vit-freq-meta{font-size:11px;color:var(--text3);margin-top:2px}
-/* Vitamin swipe: two action buttons */
-.swipe-2btn .swipe-content{transition:transform .25s cubic-bezier(.4,0,.2,1);will-change:transform;background:var(--card)}
-.swipe-2btn.open .swipe-content{transform:translateX(-144px)}
-.swipe-2btn.open .swipe-act-settings{transform:translateX(0)}
-.swipe-2btn.open .swipe-act-delete{transform:translateX(0)}
-.swipe-act-settings{position:absolute;right:72px;top:0;bottom:0;width:72px;background:var(--blue);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;cursor:pointer;transform:translateX(144px);transition:transform .25s cubic-bezier(.4,0,.2,1)}
-.swipe-act-delete{position:absolute;right:0;top:0;bottom:0;width:72px;background:var(--red);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;cursor:pointer;transform:translateX(144px);transition:transform .25s cubic-bezier(.4,0,.2,1)}
-.swipe-act-settings i,.swipe-act-delete i{font-size:18px;color:#fff}
-.swipe-act-settings span,.swipe-act-delete span{font-size:9px;font-weight:600;color:#fff}
 /* Edit profile modal */
 .ep-goal{display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--bg3);border-radius:11px;cursor:pointer;border:1.5px solid transparent;margin-bottom:6px;transition:all .18s}
 .ep-goal.active{border-color:rgba(47,209,88,.4);background:rgba(47,209,88,.07)}
@@ -367,36 +344,6 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Inter'
 
         <div class="sec">Витамины</div>
         <div class="p-section" id="vit-schedule-list"></div>
-        <div id="vit-freq-sheet" class="vit-freq-sheet" style="display:none">
-          <div class="vfs-hdr">
-            <div class="vfs-title" id="vfs-name">Витамин</div>
-            <div class="vfs-close" onclick="closeVitFreqSheet()">✕</div>
-          </div>
-          <div class="vfs-section">
-            <div class="vfs-lbl">Периодичность</div>
-            <div class="freq-pills">
-              <button class="freq-pill on" id="vfp-every" onclick="setVitFreqType('every')">Каждый день</button>
-              <button class="freq-pill" id="vfp-other" onclick="setVitFreqType('other')">Через день</button>
-              <button class="freq-pill" id="vfp-days" onclick="setVitFreqType('days')">По дням</button>
-            </div>
-            <div class="freq-days" id="vfs-days-row" style="display:none">
-              <button class="freq-day" data-day="1" onclick="this.classList.toggle('on')">Пн</button>
-              <button class="freq-day" data-day="2" onclick="this.classList.toggle('on')">Вт</button>
-              <button class="freq-day" data-day="3" onclick="this.classList.toggle('on')">Ср</button>
-              <button class="freq-day" data-day="4" onclick="this.classList.toggle('on')">Чт</button>
-              <button class="freq-day" data-day="5" onclick="this.classList.toggle('on')">Пт</button>
-              <button class="freq-day" data-day="6" onclick="this.classList.toggle('on')">Сб</button>
-              <button class="freq-day" data-day="0" onclick="this.classList.toggle('on')">Вс</button>
-            </div>
-          </div>
-          <div class="vfs-section" style="border-bottom:none;display:flex;align-items:center;justify-content:space-between">
-            <div class="vfs-lbl" style="margin:0">Время приёма</div>
-            <input type="time" id="vfs-time" value="08:00" style="background:transparent;border:none;color:var(--blue);font-size:14px;font-weight:700;font-family:inherit;outline:none"/>
-          </div>
-          <div style="padding:0 14px 13px">
-            <button onclick="saveVitFreq()" style="width:100%;padding:10px;border-radius:11px;background:var(--blue);border:none;color:#fff;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit">Сохранить</button>
-          </div>
-        </div>
 
         <div class="sec">Лекарства</div>
         <div class="p-section" id="meds-list">
@@ -605,7 +552,7 @@ const CS = {
 // ─── STATE ───
 let profile = null; // { name, goal, sex, age, weight, height, schedule, vitamins, meds }
 let dayState = {}; // { meals:{}, vitamins:{}, water:0 }
-let weights = [];
+let weights = {};
 let allDays = {};
 
 const MONTHS = ['января','февраля','марта','апреля','мая','июня','июля','августа','сентября','октября','ноября','декабря'];
@@ -616,13 +563,7 @@ function dateKey(d){ return `${d.getFullYear()}-${String(d.getMonth()+1).padStar
 function todayKey(){ return dateKey(new Date()); }
 
 async function loadAll(){
-  const todayK = todayKey();
-  const dayKeys = Array.from({length:7},(_,i)=>{ const d=new Date(); d.setDate(d.getDate()-i); return dateKey(d); });
-  const allKeys = ['profile','weights','day_'+todayK,...dayKeys.map(k=>'day_'+k)];
-  const vals = await Promise.all(allKeys.map(k=>CS.get(k)));
-  const kv = Object.fromEntries(allKeys.map((k,i)=>[k,vals[i]]));
-
-  profile = kv['profile'] || null;
+  profile = await CS.get('profile');
   // Migrate meds: old {time} → new {times:[]}
   if(profile?.meds){
     profile.meds = profile.meds.map(m=>{
@@ -631,25 +572,51 @@ async function loadAll(){
       return m;
     });
   }
-  dayState = kv['day_'+todayK] || { meals:{}, vitamins:{}, water:0 };
-  const rawWeights = kv['weights'] || [];
-  if(!Array.isArray(rawWeights)){
+  const key = todayKey();
+  dayState = (await CS.get('day_'+key)) || { meals:{}, vitamins:{}, water:0 };
+  const rawWeights = (await CS.get('weights')) || [];
+  // Migrate old format {date: value} to array if needed
+  if(!Array.isArray(rawWeights)) {
     weights = Object.entries(rawWeights).map(([date,value])=>({date,value:parseFloat(value)})).sort((a,b)=>b.date.localeCompare(a.date));
     await saveWeights();
   } else {
     weights = rawWeights;
   }
+  // Seed from profile if empty
   if(weights.length===0 && profile?.weight){
-    weights = [{date:todayK, value:parseFloat(profile.weight), ts:Date.now()}];
+    weights = [{date: todayKey(), value: parseFloat(profile.weight), ts: Date.now()}];
     await saveWeights();
   }
-  dayKeys.forEach(k=>{ allDays[k] = kv['day_'+k] || {}; });
+  // Load last 7 days for stats
+  for(let i=0;i<7;i++){
+    const d = new Date(); d.setDate(d.getDate()-i);
+    const k = dateKey(d);
+    allDays[k] = (await CS.get('day_'+k)) || {};
+  }
 }
 
 async function saveDayState(){
   await CS.set('day_'+todayKey(), dayState);
   allDays[todayKey()] = dayState;
   saveProfile();
+}
+async function pushScheduleToServer() {
+  if(!TG_USER.id) return;
+  try {
+    const sched = getMealSchedule().filter(m=>m.enabled);
+    const vits = getActiveVits().map(v=>({
+      id: v.id, name: v.name, time: getVitTime(v.id, profile), timingLabel: v.timingLabel
+    }));
+    const meds = (profile.meds||[]).map(m=>({name:m.name, dose:m.dose, time:m.time}));
+    await fetch(API + '/api/schedule', {
+      method:'POST',
+      headers:{'Content-Type':'application/json','X-Init-Data':INIT_DATA},
+      body: JSON.stringify({ uid: TG_USER.id||0, schedule: { meals: sched, vitamins: vits, meds } })
+    });
+  } catch(e) {
+    console.warn('Schedule push failed:', e);
+
+  }
 }
 
 async function saveProfile() {
@@ -664,12 +631,14 @@ async function saveProfile() {
       try { const s = await CS.get('_uid'); if(s){ uid = s; _resolvedUid = s; } } catch(e) {}
     }
     if(uid) { try { await CS.set('_uid', uid); } catch(e) {} }
-    if(!uid) return;
-    await fetch(API + '/api/profile', {
+    if(!uid) { console.warn('[saveProfile] no uid, skip server save'); return; }
+    const res = await fetch(API + '/api/profile', {
       method: 'POST',
       headers: {'Content-Type': 'application/json', 'X-Init-Data': initData},
       body: JSON.stringify({ uid: uid, profile: profile })
     });
+    const json = await res.json();
+    console.log('[saveProfile] server response:', JSON.stringify(json));
   } catch(e) {
     console.error('[saveProfile] fetch failed:', e.message);
   }
@@ -950,6 +919,7 @@ async function toggleBot(i){
   if(dayState.water<0) dayState.water=0;
   await saveDayState();
   renderBottles();
+  saveProfile();
 }
 
 // ─── MEALS ───
@@ -990,6 +960,7 @@ async function toggleMeal(id){
     dayState.water=(dayState.water||0)+(was?-m.waterAmount:m.waterAmount);
     if(dayState.water<0) dayState.water=0;
     renderBottles();
+    saveProfile();
   }
   await saveDayState();
   document.getElementById('mc-'+id)?.classList.toggle('done',!!dayState.meals[id]);
@@ -1002,12 +973,8 @@ function toggleMealDetail(id){ document.getElementById('md-'+id)?.classList.togg
 // ─── VITAMINS ───
 function getActiveVits(){
   if(!profile?.vitamins?.length) return [];
-  const hidden=profile?.vitHidden||[];
-  return VITS_ALL.filter(v=>
-    profile.vitamins.includes(v.id) &&
-    !hidden.includes(v.id) &&
-    isVitActiveToday(v.id)
-  );
+  const hidden = profile?.vitHidden||[];
+  return VITS_ALL.filter(v=>profile.vitamins.includes(v.id) && !hidden.includes(v.id));
 }
 
 function renderVits(){
@@ -1361,138 +1328,39 @@ async function resetSchedule(){
   updateRings();
 }
 
-// ── Vitamin frequency helpers ──────────────────────────────────────────────
-function getVitFreqLabel(id){
-  const s=profile?.vitFreq?.[id];
-  if(!s||s.type==='every') return 'каждый день';
-  if(s.type==='other') return 'через день';
-  if(s.type==='days'&&s.days?.length){
-    const n=['Вс','Пн','Вт','Ср','Чт','Пт','Сб'];
-    return s.days.map(d=>n[d]).join(', ');
-  }
-  return 'каждый день';
-}
-
-function isVitActiveToday(id){
-  const s=profile?.vitFreq?.[id];
-  if(!s||s.type==='every') return true;
-  if(s.type==='other'){
-    const start=new Date(new Date().getFullYear(),0,1);
-    const dayNum=Math.floor((Date.now()-start)/(86400000));
-    return dayNum%2===0;
-  }
-  if(s.type==='days'&&s.days?.length) return s.days.includes(new Date().getDay());
-  return true;
-}
-
-let _vitFreqId=null;
-function openVitFreqSheet(id){
-  _vitFreqId=id;
-  if(_swipeActive){ _swipeActive.classList.remove('open'); _swipeActive=null; }
-  const s=profile?.vitFreq?.[id]||{type:'every'};
-  const v=VITS_ALL.find(x=>x.id===id);
-  document.getElementById('vfs-name').textContent=v?.name||id;
-  document.getElementById('vfs-time').value=getVitTime(id,profile);
-  ['every','other','days'].forEach(k=>document.getElementById('vfp-'+k).classList.toggle('on',s.type===k));
-  const days=s.days||[];
-  document.querySelectorAll('.freq-day').forEach(b=>b.classList.toggle('on',days.includes(parseInt(b.dataset.day))));
-  document.getElementById('vfs-days-row').style.display=s.type==='days'?'flex':'none';
-  const sheet=document.getElementById('vit-freq-sheet');
-  sheet.style.display='block';
-  sheet.scrollIntoView({behavior:'smooth',block:'nearest'});
-}
-
-function closeVitFreqSheet(){
-  document.getElementById('vit-freq-sheet').style.display='none';
-  _vitFreqId=null;
-}
-
-function setVitFreqType(type){
-  ['every','other','days'].forEach(k=>document.getElementById('vfp-'+k).classList.toggle('on',k===type));
-  document.getElementById('vfs-days-row').style.display=type==='days'?'flex':'none';
-}
-
-async function saveVitFreq(){
-  if(!_vitFreqId) return;
-  const id=_vitFreqId;
-  const type=['every','other','days'].find(k=>document.getElementById('vfp-'+k).classList.contains('on'))||'every';
-  const days=[...document.querySelectorAll('.freq-day.on')].map(b=>parseInt(b.dataset.day));
-  const time=document.getElementById('vfs-time').value;
-  if(!profile.vitFreq) profile.vitFreq={};
-  profile.vitFreq[id]={type,days};
-  if(!profile.vitTimes) profile.vitTimes={};
-  profile.vitTimes[id]=time;
-  await saveProfile();
-  closeVitFreqSheet();
-  renderVitScheduleList();
-  renderVits();
-  updateRings();
-}
-
 function renderVitScheduleList(){
   const el=document.getElementById('vit-schedule-list'); if(!el) return;
-  const allVits=VITS_ALL;
-  const selectedIds=profile?.vitamins||[];
-  const hiddenIds=profile?.vitHidden||[];
+  const allVits = VITS_ALL;
+  const selectedIds = profile?.vitamins||[];
+  const hiddenIds = profile?.vitHidden||[];
 
-  let h=selectedIds.map(id=>{
-    const v=allVits.find(x=>x.id===id); if(!v) return '';
-    const t=getVitTime(v.id,profile);
-    const hidden=hiddenIds.includes(v.id);
-    const freqLabel=getVitFreqLabel(v.id);
-    return `<div class="swipe-row swipe-2btn" data-vit-id="${v.id}">
-      <div class="swipe-content p-row" style="border-bottom:.5px solid var(--border)">
-        <div class="p-row-ico" style="background:${v.bg}"><i class="ph ${v.icon}" style="color:${v.color}"></i></div>
-        <div style="flex:1;min-width:0">
-          <div class="p-row-label">${v.name}</div>
-          <div class="vit-freq-meta">${t} · ${freqLabel}</div>
-        </div>
-        <div class="ntoggle ${hidden?'':'on'}" onclick="event.stopPropagation();toggleVitVisible('${v.id}',this)"><div class="ntoggle-knob"></div></div>
-      </div>
-      <div class="swipe-act-settings" onclick="openVitFreqSheet('${v.id}')">
-        <i class="ph ph-gear"></i><span>Настройки</span>
-      </div>
-      <div class="swipe-act-delete" data-del-vit="${v.id}">
-        <i class="ph ph-trash"></i><span>Удалить</span>
-      </div>
+  // Selected vitamins rows
+  let h = selectedIds.map(id=>{
+    const v = allVits.find(x=>x.id===id); if(!v) return '';
+    const t = getVitTime(v.id, profile);
+    const hidden = hiddenIds.includes(v.id);
+    return `<div class="p-row">
+      <div class="p-row-ico" style="background:${v.bg}"><i class="ph ${v.icon}" style="color:${v.color}"></i></div>
+      <span class="p-row-label">${v.name}</span>
+      <input type="time" value="${t}" class="p-time-input" style="margin-right:8px" onchange="debounceVitTime('${v.id}',this.value)"/>
+      <div class="ntoggle ${hidden?'':'on'}" onclick="toggleVitVisible('${v.id}',this)" title="Показывать в Сегодня"><div class="ntoggle-knob"></div></div>
     </div>`;
   }).join('');
 
-  const unselected=allVits.filter(v=>!selectedIds.includes(v.id));
-  h+=`<div class="add-btn" onclick="toggleAddVitList()" style="border-top:.5px solid var(--border)"><i class="ph ph-plus-circle" style="font-size:19px"></i>Добавить витамин</div>`;
-  h+=`<div id="vit-add-expand" style="display:none">`;
-  h+=unselected.map(v=>`<div class="p-row" style="cursor:pointer" onclick="addVitToProfile('${v.id}')">
+  // Unselected vitamins — collapsible
+  const unselected = allVits.filter(v=>!selectedIds.includes(v.id));
+  const addId = 'vit-add-expand';
+  h += `<div class="add-btn" onclick="toggleAddVitList()" style="border-top:.5px solid var(--border)"><i class="ph ph-plus-circle" style="font-size:19px"></i>Добавить витамин</div>`;
+  h += `<div id="${addId}" style="display:none">`;
+  h += unselected.map(v=>`<div class="p-row" style="cursor:pointer" onclick="addVitToProfile('${v.id}')">
     <div class="p-row-ico" style="background:${v.bg}"><i class="ph ${v.icon}" style="color:${v.color}"></i></div>
     <span class="p-row-label">${v.name}</span>
     <i class="ph ph-plus" style="color:var(--green);font-size:18px"></i>
   </div>`).join('');
-  h+='</div>';
-  h+=`<div style="padding:8px 13px"><button class="reset-btn" onclick="resetVitTimes()">↺ Сбросить время по умолчанию</button></div>`;
-  el.innerHTML=h;
+  h += '</div>';
+  h += `<div style="padding:8px 13px"><button class="reset-btn" onclick="resetVitTimes()">↺ Сбросить время по умолчанию</button></div>`;
 
-  // Wire 2-button swipe for each vitamin row
-  el.querySelectorAll('.swipe-row.swipe-2btn').forEach(row=>{
-    init2BtnSwipe(row);
-  });
-
-  // Wire delete buttons
-  el.querySelectorAll('[data-del-vit]').forEach(btn=>{
-    btn.addEventListener('click', e=>{
-      e.stopPropagation();
-      const id=btn.dataset.delVit;
-      const row=btn.closest('.swipe-row');
-      row.classList.add('deleting');
-      setTimeout(async ()=>{
-        if(!profile.vitamins) return;
-        profile.vitamins=profile.vitamins.filter(v=>v!==id);
-        if(profile.vitHidden) profile.vitHidden=profile.vitHidden.filter(v=>v!==id);
-        await saveProfile();
-        renderVitScheduleList();
-        renderVits();
-        updateRings();
-      },300);
-    });
-  });
+  el.innerHTML = h;
 }
 
 function toggleAddVitList(){
@@ -1940,52 +1808,7 @@ function restartOnboarding(){
 }
 
 // ─── SWIPE TO DELETE ───
-// ─── SWIPE (2-button variant for vitamins) ───────────────────────────────────
-function init2BtnSwipe(rowEl){
-  let startX=0, startY=0, dx=0, swiping=false, locked=false;
-  const W=144, THRESHOLD=60;
-
-  rowEl.addEventListener('touchstart', e=>{
-    startX=e.touches[0].clientX; startY=e.touches[0].clientY;
-    dx=0; swiping=false; locked=false;
-  },{passive:true});
-
-  rowEl.addEventListener('touchmove', e=>{
-    if(locked) return;
-    dx=e.touches[0].clientX-startX;
-    const dy=e.touches[0].clientY-startY;
-    if(!swiping&&Math.abs(dy)>Math.abs(dx)+5){locked=true;return;}
-    if(Math.abs(dx)>6) swiping=true;
-    if(!swiping) return;
-    e.preventDefault();
-    const isOpen=rowEl.classList.contains('open');
-    const offset=isOpen?Math.min(0,-W+Math.max(dx,-20)):Math.min(0,Math.max(dx,-W));
-    const content=rowEl.querySelector('.swipe-content');
-    const s1=rowEl.querySelector('.swipe-act-settings');
-    const s2=rowEl.querySelector('.swipe-act-delete');
-    if(content){content.style.transition='none';content.style.transform=`translateX(${offset}px)`;}
-    if(s1){s1.style.transition='none';s1.style.transform=`translateX(${W+offset}px)`;}
-    if(s2){s2.style.transition='none';s2.style.transform=`translateX(${W+offset}px)`;}
-  },{passive:false});
-
-  rowEl.addEventListener('touchend', ()=>{
-    if(locked||!swiping) return;
-    const content=rowEl.querySelector('.swipe-content');
-    const s1=rowEl.querySelector('.swipe-act-settings');
-    const s2=rowEl.querySelector('.swipe-act-delete');
-    [content,s1,s2].forEach(el=>{if(el){el.style.transition='';el.style.transform='';}});
-    const isOpen=rowEl.classList.contains('open');
-    if(!isOpen&&dx<-THRESHOLD){
-      if(_swipeActive&&_swipeActive!==rowEl) _swipeActive.classList.remove('open');
-      rowEl.classList.add('open'); _swipeActive=rowEl;
-    } else if(isOpen&&dx>THRESHOLD/2){
-      rowEl.classList.remove('open');
-      if(_swipeActive===rowEl) _swipeActive=null;
-    }
-  });
-}
-
-// ─── SWIPE (single delete button) ────────────────────────────────────────────
+let _swipeActive = null; // currently open swipe row
 
 function initSwipeDelete(rowEl, onDelete) {
   let startX = 0, startY = 0, dx = 0, swiping = false, locked = false;
