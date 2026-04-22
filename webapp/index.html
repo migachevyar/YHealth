@@ -30,12 +30,6 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Inter'
 .screen::-webkit-scrollbar{display:none}
 .screen.hidden{opacity:0;pointer-events:none;transform:translateY(8px)}
 .pad{padding:0 16px calc(80px + var(--sb))}
-/* HERO SCENE */
-.today-hero{height:148px;position:relative;overflow:hidden;flex-shrink:0}
-.hero-scene{position:absolute;inset:0;transition:opacity .8s ease}
-.hero-text{position:absolute;bottom:14px;left:16px;z-index:2}
-.hero-date-lbl{font-size:11px;color:rgba(255,255,255,0.52);font-weight:500;margin-bottom:2px}
-.hero-greet{font-size:24px;font-weight:800;color:#fff;line-height:1.2;letter-spacing:-.4px;text-shadow:0 2px 14px rgba(0,0,0,0.85)}
 .hdr{padding:calc(60px + var(--st)) 16px 0}
 .hdr-sub{font-size:14px;color:var(--text2);margin-bottom:2px}
 .hdr-title{font-size:30px;font-weight:800;letter-spacing:-.7px}
@@ -48,17 +42,8 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Inter'
 .tab.active i{color:var(--green)}
 .tab.active span{color:var(--green)}
 .tab:not(.active) i{color:var(--text3)}
-/* ── Animations ── */
-@keyframes ring-fill{from{stroke-dashoffset:163.4}}
-.ring-animated{animation:ring-fill .8s cubic-bezier(.4,0,.2,1) both}
-@keyframes ring-pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.06)}}
-.ring-card.complete{animation:ring-pulse .4s cubic-bezier(.34,1.56,.64,1)}
-@keyframes check-pop{0%{transform:scale(0) rotate(-10deg)}60%{transform:scale(1.25) rotate(4deg)}100%{transform:scale(1) rotate(0)}}
-.meal-check.on i,.vit-check.on i{animation:check-pop .3s cubic-bezier(.34,1.56,.64,1) both}
-@keyframes card-done{0%{background:var(--card)}50%{background:rgba(52,199,89,0.08)}100%{background:var(--card)}}
-.meal-card.just-done{animation:card-done .5s ease}
-@keyframes slide-up-in{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
-.screen:not(.hidden){animation:slide-up-in .22s cubic-bezier(.4,0,.2,1)}display:flex;gap:9px;padding:10px 0 4px}
+/* RINGS */
+.rings{display:flex;gap:9px;padding:10px 0 4px}
 .ring-card{flex:1;background:var(--card);border:.5px solid var(--border);border-radius:var(--r);padding:12px 6px;display:flex;flex-direction:column;align-items:center;gap:5px}
 .ring-wrap{position:relative;width:64px;height:64px}
 .ring-wrap svg{width:64px;height:64px;transform:rotate(-90deg)}
@@ -202,25 +187,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Inter'
   100%{max-height:0;opacity:0;padding-top:0;padding-bottom:0;margin:0}
 }
 .swipe-row.deleting{animation:swipe-collapse .32s cubic-bezier(.4,0,.2,1) forwards;overflow:hidden;pointer-events:none}
-.sa-settings-btn{width:72px;background:#0a84ff;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;cursor:pointer;flex-shrink:0}
-.sa-settings-btn span{font-size:9px;font-weight:600;color:#fff}
-.sa-delete-btn{width:72px;background:#ff3b30;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;cursor:pointer;flex-shrink:0}
-.sa-delete-btn span{font-size:9px;font-weight:600;color:#fff}
-.swipe-actions{overflow:hidden}
-/* Vitamin frequency sheet */
-.vit-freq-sheet{background:var(--card);border-radius:14px;overflow:hidden;margin:8px 0}
-.vfs-hdr{padding:13px 14px 10px;border-bottom:.5px solid var(--border);display:flex;align-items:center;justify-content:space-between}
-.vfs-title{font-size:14px;font-weight:600}
-.vfs-close{font-size:18px;color:var(--text3);cursor:pointer;padding:2px 4px;line-height:1}
-.vfs-section{padding:11px 14px;border-bottom:.5px solid var(--border)}
-.vfs-label{font-size:11px;color:var(--text3);font-weight:600;margin-bottom:8px;letter-spacing:.3px}
-.freq-pills{display:flex;flex-wrap:wrap;gap:6px}
-.freq-pill{padding:6px 13px;border-radius:20px;border:.5px solid var(--border);background:var(--bg3);font-size:12px;color:var(--text2);cursor:pointer;font-family:inherit;font-weight:500;transition:all .18s}
-.freq-pill.on{background:rgba(10,132,255,0.15);border-color:#0a84ff;color:#0a84ff}
-.freq-days{display:flex;gap:5px;margin-top:10px}
-.freq-day{width:34px;height:34px;border-radius:50%;border:.5px solid var(--border);background:var(--bg3);font-size:10px;font-weight:600;color:var(--text3);cursor:pointer;display:flex;align-items:center;justify-content:center;font-family:inherit;transition:all .18s;flex-shrink:0}
-.freq-day.on{background:rgba(10,132,255,0.18);border-color:#0a84ff;color:#0a84ff}
-.vit-freq-meta{font-size:11px;color:var(--text3)}
+/* Edit profile modal */
 .ep-goal{display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--bg3);border-radius:11px;cursor:pointer;border:1.5px solid transparent;margin-bottom:6px;transition:all .18s}
 .ep-goal.active{border-color:rgba(47,209,88,.4);background:rgba(47,209,88,.07)}
 .ep-goal i{font-size:17px;width:22px;text-align:center}
@@ -311,54 +278,11 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Inter'
 
     <!-- TODAY -->
     <div class="screen" id="s-today">
-      <div class="today-hero" id="today-hero">
-        <!-- NIGHT -->
-        <svg id="hero-night" class="hero-scene" style="opacity:0" viewBox="0 0 390 148" xmlns="http://www.w3.org/2000/svg" width="100%" height="148" preserveAspectRatio="xMidYMid slice">
-          <defs><linearGradient id="ng" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#0e1236"/><stop offset="65%" stop-color="#090c20"/><stop offset="100%" stop-color="#0d0d0f"/></linearGradient><radialGradient id="ngl" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="rgba(180,200,255,0.14)"/><stop offset="100%" stop-color="rgba(80,100,200,0)"/></radialGradient><mask id="cm"><circle cx="230" cy="44" r="24" fill="white"/><circle cx="242" cy="41" r="21" fill="black"/></mask><linearGradient id="nf" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="transparent"/><stop offset="100%" stop-color="#0d0d0f"/></linearGradient></defs>
-          <rect width="390" height="148" fill="url(#ng)"/><ellipse cx="230" cy="44" rx="42" ry="40" fill="url(#ngl)"/>
-          <circle cx="230" cy="44" r="24" fill="#ccd6f0" mask="url(#cm)"/>
-          <circle cx="218" cy="50" r="3.8" fill="#b4c2e4" mask="url(#cm)"/><circle cx="218" cy="50" r="2.6" fill="#a8b8dc" mask="url(#cm)"/>
-          <circle cx="222" cy="37" r="2.4" fill="#bac6e6" mask="url(#cm)"/><circle cx="222" cy="37" r="1.6" fill="#aebade" mask="url(#cm)"/>
-          <circle cx="40" cy="18" r="1.3" fill="rgba(255,255,255,0.85)"/><circle cx="75" cy="32" r="0.9" fill="rgba(255,255,255,0.6)"/><circle cx="120" cy="12" r="1.1" fill="rgba(255,255,255,0.75)"/><circle cx="158" cy="22" r="1.0" fill="rgba(255,255,255,0.7)"/><circle cx="185" cy="15" r="1.2" fill="rgba(255,255,255,0.8)"/><circle cx="310" cy="20" r="0.9" fill="rgba(255,255,255,0.6)"/><circle cx="55" cy="62" r="0.7" fill="rgba(255,255,255,0.4)"/><circle cx="340" cy="38" r="0.8" fill="rgba(255,255,255,0.5)"/>
-          <path d="M40 18L41.3 18M40 18L38.7 18M40 18L40 19.3M40 18L40 16.7" stroke="rgba(255,255,255,0.9)" stroke-width=".8" stroke-linecap="round"/>
-          <path d="M185 15L186.5 15M185 15L183.5 15M185 15L185 16.5M185 15L185 13.5" stroke="rgba(255,255,255,0.85)" stroke-width=".8" stroke-linecap="round"/>
-          <rect x="0" y="85" width="390" height="63" fill="url(#nf)"/>
-        </svg>
-        <!-- MORNING -->
-        <svg id="hero-morning" class="hero-scene" style="opacity:0" viewBox="0 0 390 148" xmlns="http://www.w3.org/2000/svg" width="100%" height="148" preserveAspectRatio="xMidYMid slice">
-          <defs><linearGradient id="mg" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#1a3568"/><stop offset="22%" stop-color="#7a3520"/><stop offset="48%" stop-color="#d86020"/><stop offset="70%" stop-color="#e88030"/><stop offset="88%" stop-color="#7a3010"/><stop offset="100%" stop-color="#0d0d0f"/></linearGradient><radialGradient id="mgl" cx="80%" cy="38%" r="50%"><stop offset="0%" stop-color="rgba(255,210,80,0.4)"/><stop offset="100%" stop-color="rgba(255,60,0,0)"/></radialGradient><radialGradient id="ms" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#fff5a0"/><stop offset="45%" stop-color="#ffdd40"/><stop offset="100%" stop-color="#ffaa10"/></radialGradient><linearGradient id="mf" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="transparent"/><stop offset="100%" stop-color="#0d0d0f"/></linearGradient></defs>
-          <rect width="390" height="148" fill="url(#mg)"/><rect width="390" height="148" fill="url(#mgl)"/>
-          <circle cx="310" cy="42" r="34" fill="rgba(255,200,50,0.18)"/><circle cx="310" cy="42" r="26" fill="url(#ms)"/><circle cx="310" cy="42" r="18" fill="#fff090"/>
-          <ellipse cx="296" cy="62" rx="46" ry="16" fill="rgba(255,160,60,0.38)"/><ellipse cx="316" cy="56" rx="38" ry="14" fill="rgba(255,180,80,0.32)"/><ellipse cx="330" cy="64" rx="30" ry="12" fill="rgba(255,170,70,0.28)"/>
-          <ellipse cx="110" cy="36" rx="52" ry="10" fill="rgba(255,130,50,0.18)"/>
-          <circle cx="45" cy="18" r="0.9" fill="rgba(255,255,255,0.4)"/>
-          <rect x="0" y="118" width="390" height="30" fill="url(#mf)"/>
-        </svg>
-        <!-- DAY -->
-        <svg id="hero-day" class="hero-scene" style="opacity:0" viewBox="0 0 390 148" xmlns="http://www.w3.org/2000/svg" width="100%" height="148" preserveAspectRatio="xMidYMid slice">
-          <defs><linearGradient id="dg" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#0f5ab0"/><stop offset="50%" stop-color="#2e88d0"/><stop offset="78%" stop-color="#50a8e8"/><stop offset="100%" stop-color="#0d0d0f"/></linearGradient><radialGradient id="dsg" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="rgba(255,252,200,0.7)"/><stop offset="35%" stop-color="rgba(255,240,120,0.35)"/><stop offset="100%" stop-color="rgba(255,200,0,0)"/></radialGradient><linearGradient id="df" x1="0" y1="0" x2="0" y2="1"><stop offset="55%" stop-color="transparent"/><stop offset="100%" stop-color="#0d0d0f"/></linearGradient></defs>
-          <rect width="390" height="148" fill="url(#dg)"/>
-          <circle cx="310" cy="30" r="52" fill="url(#dsg)"/><circle cx="310" cy="30" r="20" fill="rgba(255,248,180,0.95)"/><circle cx="310" cy="30" r="15" fill="rgba(255,252,210,1)"/><circle cx="310" cy="30" r="10" fill="#fffde0"/>
-          <ellipse cx="80" cy="56" rx="42" ry="15" fill="rgba(255,255,255,0.22)"/><ellipse cx="97" cy="47" rx="30" ry="14" fill="rgba(255,255,255,0.19)"/><ellipse cx="185" cy="76" rx="48" ry="14" fill="rgba(255,255,255,0.17)"/><ellipse cx="204" cy="68" rx="34" ry="13" fill="rgba(255,255,255,0.14)"/>
-          <rect x="0" y="0" width="390" height="148" fill="url(#df)"/>
-        </svg>
-        <!-- EVENING -->
-        <svg id="hero-evening" class="hero-scene" style="opacity:0" viewBox="0 0 390 148" xmlns="http://www.w3.org/2000/svg" width="100%" height="148" preserveAspectRatio="xMidYMid slice">
-          <defs><linearGradient id="evg" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#100c2a"/><stop offset="22%" stop-color="#3a1240"/><stop offset="50%" stop-color="#aa3412"/><stop offset="72%" stop-color="#cc5c14"/><stop offset="88%" stop-color="#6a2206"/><stop offset="100%" stop-color="#0d0d0f"/></linearGradient><radialGradient id="evgl" cx="80%" cy="65%" r="48%"><stop offset="0%" stop-color="rgba(255,150,30,0.55)"/><stop offset="100%" stop-color="rgba(160,20,0,0)"/></radialGradient><radialGradient id="evs" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#ffb040"/><stop offset="55%" stop-color="#ff6800"/><stop offset="100%" stop-color="#cc3800"/></radialGradient><linearGradient id="evf" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="transparent"/><stop offset="100%" stop-color="#0d0d0f"/></linearGradient><clipPath id="evc"><rect x="0" y="0" width="390" height="148"/></clipPath></defs>
-          <rect width="390" height="148" fill="url(#evg)"/><rect width="390" height="148" fill="url(#evgl)"/>
-          <circle cx="320" cy="112" r="30" fill="url(#evs)" clip-path="url(#evc)" opacity=".95"/><circle cx="320" cy="112" r="20" fill="#ffb84a" clip-path="url(#evc)"/>
-          <ellipse cx="320" cy="108" rx="90" ry="12" fill="rgba(255,155,35,0.2)"/>
-          <ellipse cx="65" cy="52" rx="54" ry="11" fill="rgba(255,100,40,0.22)"/><ellipse cx="78" cy="45" rx="40" ry="9" fill="rgba(255,85,30,0.16)"/>
-          <ellipse cx="175" cy="30" rx="46" ry="9" fill="rgba(185,65,155,0.22)"/><ellipse cx="192" cy="24" rx="33" ry="8" fill="rgba(165,50,135,0.16)"/>
-          <circle cx="35" cy="18" r="1.0" fill="rgba(255,220,200,0.6)"/><circle cx="128" cy="13" r="0.8" fill="rgba(255,220,200,0.5)"/>
-          <rect x="0" y="120" width="390" height="28" fill="url(#evf)"/>
-        </svg>
-        <div class="hero-text">
-          <div class="hero-date-lbl" id="today-date"></div>
-          <div class="hero-greet" id="today-title"></div>
-        </div>
+      <div class="hdr">
+        <div class="hdr-sub" id="today-date"></div>
+        <div class="hdr-title" id="today-title">Доброе утро</div>
       </div>
-      <div class="pad" style="padding-top:12px">
+      <div class="pad">
         <div class="rings" id="rings-row">
           <div class="ring-card"><div class="ring-wrap"><svg viewBox="0 0 64 64"><circle cx="32" cy="32" r="26" fill="none" stroke="rgba(47,209,88,.12)" stroke-width="6"/><circle id="rf" cx="32" cy="32" r="26" fill="none" stroke="#2fd158" stroke-width="6" stroke-dasharray="163.4" stroke-dashoffset="163.4" stroke-linecap="round"/></svg><div class="rv" id="rf-v">0%</div></div><div class="rl">Питание</div><div class="rs" id="rf-s">0 из 0</div></div>
           <div class="ring-card"><div class="ring-wrap"><svg viewBox="0 0 64 64"><circle cx="32" cy="32" r="26" fill="none" stroke="rgba(10,132,255,.12)" stroke-width="6"/><circle id="rw" cx="32" cy="32" r="26" fill="none" stroke="#0a84ff" stroke-width="6" stroke-dasharray="163.4" stroke-dashoffset="163.4" stroke-linecap="round"/></svg><div class="rv" id="rw-v">0%</div></div><div class="rl">Вода</div><div class="rs" id="rw-s">0 л</div></div>
@@ -420,36 +344,6 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Inter'
 
         <div class="sec">Витамины</div>
         <div class="p-section" id="vit-schedule-list"></div>
-        <div id="vit-freq-sheet" class="vit-freq-sheet" style="display:none;margin:0 0 8px">
-          <div class="vfs-hdr">
-            <div class="vfs-title" id="vfs-title">Витамин</div>
-            <div class="vfs-close" onclick="closeVitFreqSheet()">✕</div>
-          </div>
-          <div class="vfs-section">
-            <div class="vfs-label">Периодичность</div>
-            <div class="freq-pills">
-              <button class="freq-pill on" id="vfp-every" onclick="setFreqType('every')">Каждый день</button>
-              <button class="freq-pill" id="vfp-other" onclick="setFreqType('other')">Через день</button>
-              <button class="freq-pill" id="vfp-days" onclick="setFreqType('days')">По дням</button>
-            </div>
-            <div class="freq-days" id="freq-days-row" style="display:none">
-              <button class="freq-day" data-day="1" onclick="this.classList.toggle('on')">Пн</button>
-              <button class="freq-day" data-day="2" onclick="this.classList.toggle('on')">Вт</button>
-              <button class="freq-day" data-day="3" onclick="this.classList.toggle('on')">Ср</button>
-              <button class="freq-day" data-day="4" onclick="this.classList.toggle('on')">Чт</button>
-              <button class="freq-day" data-day="5" onclick="this.classList.toggle('on')">Пт</button>
-              <button class="freq-day" data-day="6" onclick="this.classList.toggle('on')">Сб</button>
-              <button class="freq-day" data-day="0" onclick="this.classList.toggle('on')">Вс</button>
-            </div>
-          </div>
-          <div class="vfs-section" style="border-bottom:none;display:flex;align-items:center;justify-content:space-between;padding:12px 14px">
-            <div class="vfs-label" style="margin:0">Время приёма</div>
-            <input type="time" id="vfs-time" value="08:00" style="background:transparent;border:none;color:var(--blue);font-size:14px;font-weight:700;font-family:inherit;outline:none"/>
-          </div>
-          <div style="padding:0 14px 13px">
-            <button onclick="saveVitFreq()" style="width:100%;padding:10px;border-radius:11px;background:var(--blue);border:none;color:#fff;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit">Сохранить</button>
-          </div>
-        </div>
 
         <div class="sec">Лекарства</div>
         <div class="p-section" id="meds-list">
@@ -669,22 +563,7 @@ function dateKey(d){ return `${d.getFullYear()}-${String(d.getMonth()+1).padStar
 function todayKey(){ return dateKey(new Date()); }
 
 async function loadAll(){
-  // Собираем все ключи для параллельной загрузки
-  const todayK = todayKey();
-  const dayKeys = [];
-  for(let i=0;i<7;i++){
-    const d=new Date(); d.setDate(d.getDate()-i);
-    dayKeys.push(dateKey(d));
-  }
-
-  // Грузим всё параллельно — вместо 9 последовательных await
-  const keys = ['profile', 'day_'+todayK, 'weights', ...dayKeys.map(k=>'day_'+k)];
-  const results = await Promise.all(keys.map(k=>CS.get(k)));
-  const byKey = {};
-  keys.forEach((k,i)=>{ byKey[k]=results[i]; });
-
-  profile = byKey['profile'] || null;
-
+  profile = await CS.get('profile');
   // Migrate meds: old {time} → new {times:[]}
   if(profile?.meds){
     profile.meds = profile.meds.map(m=>{
@@ -693,42 +572,33 @@ async function loadAll(){
       return m;
     });
   }
-
-  dayState = byKey['day_'+todayK] || { meals:{}, vitamins:{}, water:0 };
-
-  const rawWeights = byKey['weights'] || [];
-  if(!Array.isArray(rawWeights)){
+  const key = todayKey();
+  dayState = (await CS.get('day_'+key)) || { meals:{}, vitamins:{}, water:0 };
+  const rawWeights = (await CS.get('weights')) || [];
+  // Migrate old format {date: value} to array if needed
+  if(!Array.isArray(rawWeights)) {
     weights = Object.entries(rawWeights).map(([date,value])=>({date,value:parseFloat(value)})).sort((a,b)=>b.date.localeCompare(a.date));
     await saveWeights();
   } else {
     weights = rawWeights;
   }
+  // Seed from profile if empty
   if(weights.length===0 && profile?.weight){
-    weights=[{date:todayK,value:parseFloat(profile.weight),ts:Date.now()}];
+    weights = [{date: todayKey(), value: parseFloat(profile.weight), ts: Date.now()}];
     await saveWeights();
   }
-
-  dayKeys.forEach(k=>{ allDays[k] = byKey['day_'+k] || {}; });
+  // Load last 7 days for stats
+  for(let i=0;i<7;i++){
+    const d = new Date(); d.setDate(d.getDate()-i);
+    const k = dateKey(d);
+    allDays[k] = (await CS.get('day_'+k)) || {};
+  }
 }
 
 async function saveDayState(){
-  // CloudStorage write — единственный await, не блокирует UI долго
   await CS.set('day_'+todayKey(), dayState);
   allDays[todayKey()] = dayState;
-  // Синхронизируем дневные данные с сервером в фоне (не блокируем UI)
-  _pushDayAsync();
-}
-
-function _pushDayAsync(){
-  if(!TG_USER?.id && !_resolvedUid) return;
-  const uid = _resolvedUid || String(TG_USER.id||0);
-  if(!uid) return;
-  const date = todayKey();
-  fetch(API+'/api/day',{
-    method:'POST',
-    headers:{'Content-Type':'application/json','X-Init-Data':INIT_DATA},
-    body:JSON.stringify({uid, date, data:dayState})
-  }).catch(()=>{});
+  saveProfile();
 }
 async function pushScheduleToServer() {
   if(!TG_USER.id) return;
@@ -999,35 +869,14 @@ function getDailySuggestions(mealType){
 }
 
 // ─── RINGS ───
-const RING_C = 163.4;
-let _ringsInitialized = false;
-
-function setRing(id, pct, animate=false){
+function setRing(id, pct){
   const el = document.getElementById(id);
   if(!el) return;
-  const offset = RING_C - (pct/100)*RING_C;
-  if(animate){
-    el.style.strokeDashoffset = RING_C; // start from 0
-    el.classList.remove('ring-animated');
-    void el.offsetWidth; // reflow
-    el.style.transition = 'stroke-dashoffset .8s cubic-bezier(.4,0,.2,1)';
-    requestAnimationFrame(()=>{ el.style.strokeDashoffset = offset; });
-  } else {
-    el.style.transition = 'stroke-dashoffset .35s cubic-bezier(.4,0,.2,1)';
-    el.style.strokeDashoffset = offset;
-  }
+  const c = 163.4;
+  el.style.strokeDashoffset = c - (pct/100)*c;
 }
 
-function _pulseRingCard(ringId){
-  const card = document.getElementById(ringId)?.closest('.ring-card');
-  if(!card) return;
-  card.classList.remove('complete');
-  void card.offsetWidth;
-  card.classList.add('complete');
-  setTimeout(()=>card.classList.remove('complete'), 400);
-}
-
-function updateRings(animate=false){
+function updateRings(){
   const sched = getMealSchedule().filter(m=>m.enabled);
   const vits = getActiveVits();
   const wGoal = 2.5;
@@ -1042,25 +891,9 @@ function updateRings(animate=false){
   const wp = Math.round(Math.min(w/wGoal,1)*100);
   const vp = vTotal?Math.round(vDone/vTotal*100):0;
 
-  const doAnim = animate && !_ringsInitialized;
-
-  setRing('rf', fp, doAnim);
-  document.getElementById('rf-v').textContent=fp+'%';
-  document.getElementById('rf-s').textContent=mDone+' из '+mTotal;
-
-  setRing('rw', wp, doAnim);
-  document.getElementById('rw-v').textContent=wp+'%';
-  document.getElementById('rw-s').textContent=w.toFixed(1)+' л';
-
-  setRing('rv', vp, doAnim);
-  document.getElementById('rv-v').textContent=vp+'%';
-  document.getElementById('rv-s').textContent=vDone+' из '+vTotal;
-
-  if(fp===100) _pulseRingCard('rf');
-  if(wp===100) _pulseRingCard('rw');
-  if(vp===100) _pulseRingCard('rv');
-
-  _ringsInitialized = true;
+  setRing('rf',fp); document.getElementById('rf-v').textContent=fp+'%'; document.getElementById('rf-s').textContent=mDone+' из '+mTotal;
+  setRing('rw',wp); document.getElementById('rw-v').textContent=wp+'%'; document.getElementById('rw-s').textContent=w.toFixed(1)+' л';
+  setRing('rv',vp); document.getElementById('rv-v').textContent=vp+'%'; document.getElementById('rv-s').textContent=vDone+' из '+vTotal;
 }
 
 // ─── WATER ───
@@ -1070,9 +903,7 @@ function renderBottles(){
   let h='';
   for(let i=0;i<cnt;i++){
     const full=w>=(i+1)*bs, half=!full&&w>=i*bs+bs/2;
-    const svgFull=`<svg viewBox="0 0 24 24" width="22" height="22" fill="none"><path d="M12 3C12 3 5 10 5 15a7 7 0 0014 0C19 10 12 3 12 3z" fill="rgba(10,132,255,0.75)" stroke="rgba(10,132,255,0.9)" stroke-width="1.2" stroke-linejoin="round"/></svg>`;
-    const svgEmpty=`<svg viewBox="0 0 24 24" width="22" height="22" fill="none"><path d="M12 3C12 3 5 10 5 15a7 7 0 0014 0C19 10 12 3 12 3z" fill="rgba(255,255,255,0.08)" stroke="rgba(255,255,255,0.2)" stroke-width="1.2" stroke-linejoin="round"/></svg>`;
-    h+=`<div class="bot ${full?'full':half?'half':''}" onclick="toggleBot(${i})">${full||half?svgFull:svgEmpty}</div>`;
+    h+=`<div class="bot ${full?'full':half?'half':''}" onclick="toggleBot(${i})"><i class="ph ph-drop"></i></div>`;
   }
   el.innerHTML=h;
   const pct=Math.min(100,Math.round(w/goal*100));
@@ -1129,14 +960,12 @@ async function toggleMeal(id){
     dayState.water=(dayState.water||0)+(was?-m.waterAmount:m.waterAmount);
     if(dayState.water<0) dayState.water=0;
     renderBottles();
+    saveProfile();
   }
-  const card=document.getElementById('mc-'+id);
-  const chk=document.getElementById('mch-'+id);
-  const nowDone=!!dayState.meals[id];
-  if(card){ card.classList.toggle('done',nowDone); if(nowDone){card.classList.add('just-done');setTimeout(()=>card.classList.remove('just-done'),500);} }
-  if(chk) chk.classList.toggle('on',nowDone);
+  await saveDayState();
+  document.getElementById('mc-'+id)?.classList.toggle('done',!!dayState.meals[id]);
+  document.getElementById('mch-'+id)?.classList.toggle('on',!!dayState.meals[id]);
   updateRings();
-  saveDayState(); // fire-and-forget, no await — не блокируем UI
 }
 
 function toggleMealDetail(id){ document.getElementById('md-'+id)?.classList.toggle('open'); }
@@ -1144,12 +973,8 @@ function toggleMealDetail(id){ document.getElementById('md-'+id)?.classList.togg
 // ─── VITAMINS ───
 function getActiveVits(){
   if(!profile?.vitamins?.length) return [];
-  const hidden=profile?.vitHidden||[];
-  return VITS_ALL.filter(v=>
-    profile.vitamins.includes(v.id) &&
-    !hidden.includes(v.id) &&
-    isVitActiveToday(v.id)
-  );
+  const hidden = profile?.vitHidden||[];
+  return VITS_ALL.filter(v=>profile.vitamins.includes(v.id) && !hidden.includes(v.id));
 }
 
 function renderVits(){
@@ -1178,16 +1003,14 @@ function renderVits(){
   }).join('');
 }
 
-function toggleVit(id){
+async function toggleVit(id){
   if(!dayState.vitamins) dayState.vitamins={};
   dayState.vitamins[id]=!dayState.vitamins[id];
-  const nowDone=!!dayState.vitamins[id];
-  const card=document.getElementById('vc-'+id);
-  const chk=document.getElementById('vch-'+id);
-  if(card) card.classList.toggle('done',nowDone);
-  if(chk){ chk.classList.toggle('on',nowDone); }
+  await saveDayState();
+  document.getElementById('vc-'+id)?.classList.toggle('done',!!dayState.vitamins[id]);
+  document.getElementById('vch-'+id)?.classList.toggle('on',!!dayState.vitamins[id]);
   updateRings();
-  saveDayState(); // fire-and-forget
+  saveProfile();
 }
 
 function toggleVitDetail(id){ document.getElementById('vd-'+id)?.classList.toggle('open'); }
@@ -1505,149 +1328,44 @@ async function resetSchedule(){
   updateRings();
 }
 
-function getVitFreqLabel(id){
-  const s=profile?.vitFreq?.[id];
-  if(!s||s.type==='every') return 'каждый день';
-  if(s.type==='other') return 'через день';
-  if(s.type==='days'&&s.days?.length){
-    const n=['Вс','Пн','Вт','Ср','Чт','Пт','Сб'];
-    return s.days.map(d=>n[d]).join(', ');
-  }
-  return 'каждый день';
-}
-
-function isVitActiveToday(id){
-  const s=profile?.vitFreq?.[id];
-  if(!s||s.type==='every') return true;
-  if(s.type==='other'){
-    const dayOfYear=Math.floor((Date.now()-new Date(new Date().getFullYear(),0,0))/(1000*60*60*24));
-    return dayOfYear%2===0;
-  }
-  if(s.type==='days'&&s.days?.length){
-    return s.days.includes(new Date().getDay());
-  }
-  return true;
-}
-
-let _vitFreqSheetId=null;
-function openVitFreqSheet(id){
-  _vitFreqSheetId=id;
-  const s=profile?.vitFreq?.[id]||{type:'every'};
-  const v=VITS_ALL.find(x=>x.id===id);
-  const t=getVitTime(id,profile);
-  const el=document.getElementById('vit-freq-sheet');
-  document.getElementById('vfs-title').textContent=v?.name||id;
-  document.getElementById('vfs-time').value=t;
-  // set pills
-  ['every','other','days'].forEach(k=>document.getElementById('vfp-'+k).classList.toggle('on',s.type===k));
-  // set days
-  const days=s.days||[];
-  document.querySelectorAll('.freq-day').forEach(btn=>btn.classList.toggle('on',days.includes(parseInt(btn.dataset.day))));
-  document.getElementById('freq-days-row').style.display=s.type==='days'?'flex':'none';
-  el.style.display='block';
-  el.scrollIntoView({behavior:'smooth',block:'nearest'});
-}
-
-function closeVitFreqSheet(){
-  document.getElementById('vit-freq-sheet').style.display='none';
-  _vitFreqSheetId=null;
-}
-
-function setFreqType(type){
-  if(!_vitFreqSheetId) return;
-  ['every','other','days'].forEach(k=>document.getElementById('vfp-'+k).classList.toggle('on',k===type));
-  document.getElementById('freq-days-row').style.display=type==='days'?'flex':'none';
-}
-
-async function saveVitFreq(){
-  if(!_vitFreqSheetId) return;
-  const id=_vitFreqSheetId;
-  const type=['every','other','days'].find(k=>document.getElementById('vfp-'+k).classList.contains('on'))||'every';
-  const days=[...document.querySelectorAll('.freq-day.on')].map(b=>parseInt(b.dataset.day));
-  const time=document.getElementById('vfs-time').value;
-  if(!profile.vitFreq) profile.vitFreq={};
-  profile.vitFreq[id]={type, days};
-  if(!profile.vitTimes) profile.vitTimes={};
-  profile.vitTimes[id]=time;
-  await saveProfile();
-  closeVitFreqSheet();
-  renderVitScheduleList();
-  renderVits();
-  updateRings();
-}
-
 function renderVitScheduleList(){
   const el=document.getElementById('vit-schedule-list'); if(!el) return;
-  const allVits=VITS_ALL;
-  const selectedIds=profile?.vitamins||[];
-  const hiddenIds=profile?.vitHidden||[];
-  let h='';
-  const selected=allVits.filter(v=>selectedIds.includes(v.id));
-  selected.forEach(v=>{
-    const t=getVitTime(v.id,profile);
-    const hidden=hiddenIds.includes(v.id);
-    const freqLabel=getVitFreqLabel(v.id);
-    h+=`<div class="swipe-row" data-vit-id="${v.id}">
-      <div class="swipe-content" style="gap:11px;padding:13px 13px">
-        <div class="p-row-ico" style="background:${v.bg}"><i class="ph ${v.icon}" style="color:${v.color}"></i></div>
-        <div style="flex:1;min-width:0">
-          <div class="p-row-label">${v.name}</div>
-          <div class="vit-freq-meta">${t} · ${freqLabel}</div>
-        </div>
-        <div class="ntoggle ${hidden?'':'on'}" onclick="toggleVitVisible('${v.id}',this)"><div class="ntoggle-knob"></div></div>
-      </div>
-      <div class="swipe-actions" style="position:absolute;right:0;top:0;bottom:0;display:flex">
-        <div class="sa-settings-btn" onclick="openVitFreqSheet('${v.id}')">
-          <i class="ph ph-gear" style="font-size:18px;color:#fff"></i>
-          <span>Настройки</span>
-        </div>
-        <div class="sa-delete-btn" data-vit-del="${v.id}">
-          <i class="ph ph-trash" style="font-size:18px;color:#fff"></i>
-          <span>Удалить</span>
-        </div>
-      </div>
+  const allVits = VITS_ALL;
+  const selectedIds = profile?.vitamins||[];
+  const hiddenIds = profile?.vitHidden||[];
+
+  // Selected vitamins rows
+  let h = selectedIds.map(id=>{
+    const v = allVits.find(x=>x.id===id); if(!v) return '';
+    const t = getVitTime(v.id, profile);
+    const hidden = hiddenIds.includes(v.id);
+    return `<div class="p-row">
+      <div class="p-row-ico" style="background:${v.bg}"><i class="ph ${v.icon}" style="color:${v.color}"></i></div>
+      <span class="p-row-label">${v.name}</span>
+      <input type="time" value="${t}" class="p-time-input" style="margin-right:8px" onchange="debounceVitTime('${v.id}',this.value)"/>
+      <div class="ntoggle ${hidden?'':'on'}" onclick="toggleVitVisible('${v.id}',this)" title="Показывать в Сегодня"><div class="ntoggle-knob"></div></div>
     </div>`;
-  });
-  const unselected=allVits.filter(v=>!selectedIds.includes(v.id));
-  h+=`<div class="add-btn" onclick="toggleAddVitList()"><i class="ph ph-plus-circle" style="font-size:19px"></i>Добавить витамин</div>`;
-  h+=`<div id="vit-add-expand" style="display:none">`;
-  h+=unselected.map(v=>`<div class="p-row" style="cursor:pointer" onclick="addVitToProfile('${v.id}')">
+  }).join('');
+
+  // Unselected vitamins — collapsible
+  const unselected = allVits.filter(v=>!selectedIds.includes(v.id));
+  const addId = 'vit-add-expand';
+  h += `<div class="add-btn" onclick="toggleAddVitList()" style="border-top:.5px solid var(--border)"><i class="ph ph-plus-circle" style="font-size:19px"></i>Добавить витамин</div>`;
+  h += `<div id="${addId}" style="display:none">`;
+  h += unselected.map(v=>`<div class="p-row" style="cursor:pointer" onclick="addVitToProfile('${v.id}')">
     <div class="p-row-ico" style="background:${v.bg}"><i class="ph ${v.icon}" style="color:${v.color}"></i></div>
     <span class="p-row-label">${v.name}</span>
     <i class="ph ph-plus" style="color:var(--green);font-size:18px"></i>
   </div>`).join('');
-  h+='</div>';
-  h+=`<div style="padding:8px 13px"><button class="reset-btn" onclick="resetVitTimes()">↺ Сбросить время по умолчанию</button></div>`;
-  el.innerHTML=h;
-  // wire swipe
-  el.querySelectorAll('.swipe-row[data-vit-id]').forEach(row=>{
-    const id=row.dataset.vitId;
-    initSwipeDelete(row, null); // reuse touch logic but custom buttons
-  });
-  el.querySelectorAll('[data-vit-del]').forEach(btn=>{
-    btn.addEventListener('click',e=>{
-      e.stopPropagation();
-      const id=btn.dataset.vitDel;
-      btn.closest('.swipe-row').classList.add('deleting');
-      setTimeout(()=>removeVitFromProfile(id),300);
-    });
-  });
-}
+  h += '</div>';
+  h += `<div style="padding:8px 13px"><button class="reset-btn" onclick="resetVitTimes()">↺ Сбросить время по умолчанию</button></div>`;
 
+  el.innerHTML = h;
+}
 
 function toggleAddVitList(){
   const el=document.getElementById('vit-add-expand');
   if(el) el.style.display = el.style.display==='none'?'block':'none';
-}
-
-async function removeVitFromProfile(id){
-  if(!profile?.vitamins) return;
-  profile.vitamins=profile.vitamins.filter(v=>v!==id);
-  if(profile.vitHidden) profile.vitHidden=profile.vitHidden.filter(v=>v!==id);
-  await saveProfile();
-  renderVitScheduleList();
-  renderVits();
-  updateRings();
 }
 
 async function addVitToProfile(id){
@@ -1820,18 +1538,13 @@ async function toggleMedVisible(i, el){
   saveProfile();
 }
 
-// ─── DATE + HERO SCENE ───
+// ─── DATE ───
 function renderDate(){
   const d=new Date(), h=d.getHours();
   document.getElementById('today-date').textContent=DAYS_S[d.getDay()]+', '+d.getDate()+' '+MONTHS[d.getMonth()];
-  const tod = h>=5&&h<12?'morning':h>=12&&h<18?'day':h>=18?'evening':'night';
-  const greet = tod==='morning'?'Доброе утро':tod==='day'?'Добрый день':tod==='evening'?'Добрый вечер':'Доброй ночи';
+  const greet=h<12?'Доброе утро':h<18?'Добрый день':'Добрый вечер';
   const name=profile?.name||TG_USER.first_name||'';
   document.getElementById('today-title').textContent=name?greet+', '+name+'!':greet;
-  ['night','morning','day','evening'].forEach(s=>{
-    const el=document.getElementById('hero-'+s);
-    if(el) el.style.opacity=s===tod?'1':'0';
-  });
 }
 
 // ─── NAV ───
@@ -2198,14 +1911,12 @@ async function toggleMed(i){
 }
 
 function loadApp(){
-  _ringsInitialized = false; // reset so first render animates
   renderDate();
   renderBottles();
   renderMeals();
   renderVits();
   renderMedsToday();
-  // Small delay so DOM is painted before animation starts
-  requestAnimationFrame(()=>{ updateRings(true); });
+  updateRings();
 }
 
 // ─── INIT ───
