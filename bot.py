@@ -3,17 +3,18 @@ from datetime import datetime, time as dtime, timezone, timedelta
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo
 from telegram.ext import Application, CommandHandler, MessageHandler, ContextTypes, filters
 from server import start_server, db_get, profile_update_queue
+from messages import MEAL_MESSAGES, VIT_FACTS
 
 # ── Logging ──────────────────────────────────────────────────────────────────
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s: %(message)s")
-logging.getLogger("httpx").setLevel(logging.WARNING)   # hide HTTP Request spam
+logging.getLogger("httpx").setLevel(logging.WARNING)
 logger = logging.getLogger(__name__)
 
 # ── Config ───────────────────────────────────────────────────────────────────
 TOKEN        = os.environ.get("BOT_TOKEN", "")
 WEBAPP_URL   = os.environ.get("WEBAPP_URL", "")
 FEEDBACK_ID  = os.environ.get("FEEDBACK_CHAT_ID", "")
-TZ_OFFSET    = int(os.environ.get("TZ_OFFSET", "3"))   # hours ahead of UTC
+TZ_OFFSET    = int(os.environ.get("TZ_OFFSET", "3"))
 
 VIT_NAMES = {
     "omega":"Омега-3", "vitd":"Витамин D3+K2", "vitc":"Витамин C",
@@ -25,66 +26,6 @@ MEAL_ICONS = {
     "water":"💧", "breakfast":"🍳", "snack1":"🥜",
     "lunch":"🥗", "snack2":"🍎", "dinner":"🐟",
 }
-
-# ── Creative message pools ─────────────────────────────────────────────────────
-MEAL_MESSAGES = {
-    "water": [
-        ("💧 Время пить воду!", "Факт: 60% тела — это вода. Ты буквально наполнен жизнью 🌊"),
-        ("💧 Стакан воды = быстрый перезапуск", "Обезвоживание на 2% снижает концентрацию на 20%. Один глоток — и мозг скажет спасибо 🧠"),
-        ("💧 Пора сделать глоток!", "Кожа, мышцы, суставы — всё работает лучше, когда ты пьёшь воду. Твоё тело уже ждёт 😊"),
-        ("💧 Hydration check!", "Кофе не считается. Вода считается. Давай, один стакан — и ты красавчик 💪"),
-        ("💧 Вода — лучший энергетик", "Усталость часто = жажда. Попробуй выпить воды прямо сейчас, и посмотри как изменится самочувствие ✨"),
-    ],
-    "breakfast": [
-        ("🌅 Доброе утро!", "Завтрак запускает метаболизм и повышает концентрацию на весь день. Позволь себе поесть по-человечески 🍳\n\n✨ Приятного аппетита!"),
-        ("☀️ Время завтракать!", "Люди, которые завтракают регулярно, в среднем стройнее и энергичнее. Ты уже делаешь всё правильно 🙌\n\n✨ Наслаждайся каждым кусочком!"),
-        ("🌄 Утро начинается с еды!", "Без завтрака мозг буквально экономит энергию — это и есть та \"утренняя туманность\". Заправься и начни день на полную 🚀\n\n✨ Bon appétit!"),
-        ("🍳 Завтрак подан!", "Совет: добавь белок с утра (яйца, творог, греческий йогурт) — он даст насыщение на 3–4 часа и уберёт тягу к сладкому 💡\n\n✨ Приятного аппетита!"),
-        ("🌻 Заряди себя с утра!", "Завтрак — это инвестиция в продуктивность. Причём с гарантированным возвратом 📈\n\n✨ Ешь с удовольствием!"),
-    ],
-    "snack1": [
-        ("🥜 Перекус #1 — не пропускай!", "Небольшой перекус между завтраком и обедом стабилизирует сахар в крови и не даёт переесть в обед 🎯"),
-        ("🍏 Время лёгкого перекуса!", "Орехи, фрукт, творог — 15 минут еды сейчас сэкономят тебе 2 часа голодного раздражения потом 😄"),
-        ("🥜 Перекус — это не слабость!", "Это стратегия. Спортсмены едят 4–6 раз в день. Ты тоже спортсмен — просто ещё не все об этом знают 💪"),
-        ("🍇 Мини-дозаправка!", "Совет: перекус с клетчаткой + белком (яблоко + орехи, морковь + хумус) держит сытость вдвое дольше 🌱"),
-        ("🌰 Время для перекуса!", "Факт: люди, которые делают запланированные перекусы, потребляют меньше калорий за день в целом. Парадокс? Нет, физиология 🔬"),
-    ],
-    "lunch": [
-        ("🥗 Обед — дело серьёзное!", "Совет: сначала съешь овощи/салат, потом белок, потом углеводы. Сахар поднимется плавно, энергия будет ровной 📊\n\n✨ Приятного аппетита!"),
-        ("🍽 Время обеда!", "Люди, которые едят обед медленно (20+ минут), потребляют на 15% меньше калорий. Жуй, наслаждайся, не торопись 🧘\n\n✨ Bon appétit!"),
-        ("🥗 Обед — заряд на вторую половину дня!", "Хороший обед = углеводы (энергия) + белок (восстановление) + жиры (гормоны). Твой организм — высокоточная машина 🏎\n\n✨ Приятного аппетита!"),
-        ("🌿 Пора пообедать!", "Совет дня: не ешь за рабочим столом. Даже 10-минутный перерыв снижает стресс и улучшает пищеварение 🌿\n\n✨ Ешь с удовольствием!"),
-        ("🥘 Обеденный перерыв!", "Факт: пропуск обеда повышает кортизол (гормон стресса) и снижает силу воли ближе к вечеру. Поешь — и ты будешь сильнее 💡\n\n✨ Приятного аппетита!"),
-    ],
-    "snack2": [
-        ("🍎 Перекус #2 — держим темп!", "До ужина ещё далеко. Небольшой перекус сейчас — и ты придёшь за стол без зверского голода 🎯"),
-        ("🫐 Время для второго перекуса!", "Ягоды, фрукты, йогурт — лёгкий перекус сейчас не даст переесть вечером. Это работает, проверено 📌"),
-        ("🍊 Полдник!", "Совет: фрукты лучше есть отдельно от основного приёма пищи или хотя бы через час после. Так и усваивается лучше, и живот доволен 🙂"),
-        ("🥛 Время перекусить!", "Греческий йогурт, творог, горсть орехов — быстро, вкусно, и держит тебя до ужина без срывов 💪"),
-        ("🍏 Мини-заправка перед вечером!", "Факт: вечерние срывы почти всегда из-за пропущенного дневного перекуса. Ешь сейчас — побеждай вечером 🏆"),
-    ],
-    "dinner": [
-        ("🌙 Ужин — финальный аккорд дня!", "Совет: лёгкий ужин за 2–3 часа до сна улучшает качество сна и восстановление. Твоё тело скажет спасибо утром 🌟\n\n✨ Приятного аппетита!"),
-        ("🐟 Время ужинать!", "Белок на ужин (рыба, курица, творог) питает мышцы всю ночь. Тело восстанавливается, пока ты спишь 💪\n\n✨ Bon appétit!"),
-        ("🌆 Вечерний ритуал — ужин!", "Ешь без гаджетов хотя бы иногда. Осознанный приём пищи снижает переедание и улучшает отношение с едой 🧘\n\n✨ Приятного аппетита!"),
-        ("🫚 Ужин подан!", "Совет: добавь овощи к ужину. Клетчатка накормит полезные бактерии кишечника, и они отблагодарят тебя хорошим настроением завтра 🌱\n\n✨ Ешь медленно и с удовольствием!"),
-        ("🌙 Финальный приём пищи!", "Не бойся жиров на ужин (авокадо, орехи, оливковое масло) — они нужны для синтеза гормонов и восстановления клеток 🔬\n\n✨ Приятного аппетита!"),
-    ],
-}
-
-VIT_FACTS = {
-    "omega":     "🐟 Омега-3 снижает воспаление, улучшает память и поддерживает сердце",
-    "vitd":      "☀️ Витамин D3 — гормон солнца. Влияет на иммунитет, настроение и кости",
-    "vitc":      "🍊 Витамин C усиливает иммунитет и помогает усваивать железо",
-    "vitb12":    "⚡ B12 — топливо для нервной системы и производства энергии",
-    "creatine":  "💪 Креатин увеличивает силу и ускоряет восстановление после тренировок",
-    "magnesium": "😴 Магний расслабляет мышцы, снижает стресс и улучшает сон",
-    "zinc":      "🛡 Цинк — щит иммунитета и помощник в заживлении",
-    "calcium":   "🦴 Кальций строит кости и поддерживает работу сердца",
-    "iron":      "🩸 Железо переносит кислород. Без него — усталость и туман в голове",
-    "probiotics":"🦠 Пробиотики кормят полезные бактерии. Кишечник = второй мозг",
-}
-
 
 # uid (str) → chat_id (int) — populated on /start so auto-rebuild needs no /remind
 _chat: dict[str, int] = {}
@@ -190,11 +131,17 @@ def build_reminders(profile: dict) -> list[dict]:
 
         # ── Vitamins block ──
         if slot["vits"]:
+            has_meals = bool(slot["meals"])
+            solo_vit = not has_meals and len(slot["vits"]) == 1
             vit_lines = []
             for idx, vid in slot["vits"]:
                 name = VIT_NAMES.get(vid, vid)
-                fact = VIT_FACTS.get(vid, "")
-                vit_lines.append(f"• {name}" + (f"\n  _{fact}_" if fact else ""))
+                if solo_vit:
+                    facts = VIT_FACTS.get(vid, [])
+                    fact = _pick(facts, idx) if facts else ""
+                    vit_lines.append(f"• {name}" + (f"\n  _{fact}_" if fact else ""))
+                else:
+                    vit_lines.append(f"• {name}")
             header = "💊 *Витамины:*" if len(slot["vits"]) > 1 else "💊 *Витамин:*"
             parts.append(header + "\n" + "\n".join(vit_lines))
 
@@ -208,6 +155,10 @@ def build_reminders(profile: dict) -> list[dict]:
 
         text = f"⏰ *{t}*\n\n" + "\n\n".join(parts)
 
+        # ids for п.6 skip-check
+        meal_ids = [m.get("id","") for m in slot["meals"] if m.get("id")]
+        vit_ids  = [vid for _, vid in slot["vits"]]
+
         # Clean summary for /remind command (no tips, just items)
         summary_items = []
         for meal in slot["meals"]:
@@ -219,7 +170,8 @@ def build_reminders(profile: dict) -> list[dict]:
             summary_items.append(f"💉 {m}")
         summary = ", ".join(summary_items)
 
-        reminders.append({"time": t, "text": text, "summary": summary})
+        reminders.append({"time": t, "text": text, "summary": summary,
+                          "meal_ids": meal_ids, "vit_ids": vit_ids})
 
     return reminders
 
@@ -229,10 +181,7 @@ def _now_utc() -> datetime:
     return datetime.now(timezone.utc)
 
 
-def _schedule_jobs(jq, chat_id: int, reminders: list[dict]):
-    """Register run_daily jobs. Also run_once for reminders that are still
-    upcoming today in local time but whose UTC time has already passed
-    (happens when the bot restarts after midnight UTC but before local midnight)."""
+def _schedule_jobs(jq, chat_id: int, uid: str, reminders: list[dict]):
     now_utc  = _now_utc()
     tz_delta = timedelta(hours=TZ_OFFSET)
 
@@ -241,26 +190,28 @@ def _schedule_jobs(jq, chat_id: int, reminders: list[dict]):
         utc_total = (lh * 60 + lm - TZ_OFFSET * 60) % 1440
         utc_h, utc_m = utc_total // 60, utc_total % 60
 
-        # Daily job (fires every day going forward)
+        job_data = {
+            "chat_id":    chat_id,
+            "uid":        uid,
+            "text":       r["text"],
+            "local_time": r["time"],
+            "meal_ids":   r.get("meal_ids", []),
+            "vit_ids":    r.get("vit_ids", []),
+        }
+
         jq.run_daily(
             send_reminder,
             time=dtime(utc_h, utc_m, 0),
-            data={"chat_id": chat_id, "text": r["text"], "local_time": r["time"]},
+            data=job_data,
             name=f"rem_{chat_id}_{r['time']}",
         )
 
-        # Handle two edge cases with run_once:
         target_utc_today = now_utc.replace(hour=utc_h, minute=utc_m, second=0, microsecond=0)
         local_now_mins   = (now_utc + tz_delta).hour * 60 + (now_utc + tz_delta).minute
         local_rem_mins   = lh * 60 + lm
 
         if target_utc_today <= now_utc and local_rem_mins > local_now_mins:
-            # Case 1: UTC crossed midnight but local time hasn't — fire today
-            jq.run_once(
-                send_reminder,
-                when=target_utc_today + timedelta(days=1),
-                data={"chat_id": chat_id, "text": r["text"], "local_time": r["time"]},
-            )
+            jq.run_once(send_reminder, when=target_utc_today + timedelta(days=1), data=job_data)
 
 
 def _remove_user_jobs(jq, chat_id: int):
@@ -301,7 +252,7 @@ async def setup_reminders(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     _remove_user_jobs(context.job_queue, chat_id)
     reminders = build_reminders(profile)
-    _schedule_jobs(context.job_queue, chat_id, reminders)
+    _schedule_jobs(context.job_queue, chat_id, uid, reminders)
     print(f"[REMIND] built {len(reminders)} reminders: {[r['time'] for r in reminders]}", flush=True)
 
     if not reminders:
@@ -325,7 +276,26 @@ async def setup_reminders(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def send_reminder(context: ContextTypes.DEFAULT_TYPE):
-    d  = context.job.data
+    d   = context.job.data
+    uid = d.get("uid", "")
+
+    # п.6 — пропустить если все позиции уже выполнены
+    if uid:
+        today = datetime.now(timezone.utc + timedelta(hours=TZ_OFFSET)).strftime("%Y-%m-%d") \
+            if False else (datetime.utcnow() + timedelta(hours=TZ_OFFSET)).strftime("%Y-%m-%d")
+        day_data = db_get(uid, "days") or {}
+        day = day_data.get(today, {})
+        meal_ids  = d.get("meal_ids", [])
+        vit_ids   = d.get("vit_ids", [])
+        all_done = (
+            all(day.get("meals", {}).get(mid) for mid in meal_ids) if meal_ids else True
+        ) and (
+            all(day.get("vitamins", {}).get(vid) for vid in vit_ids) if vit_ids else True
+        )
+        if meal_ids and all_done:
+            print(f"[SKIP] uid={uid} time={d.get('local_time')} — already done", flush=True)
+            return
+
     kb = [[InlineKeyboardButton("Открыть трекер", web_app=WebAppInfo(url=WEBAPP_URL))]]
     await context.bot.send_message(
         chat_id=d["chat_id"],
@@ -362,7 +332,7 @@ async def auto_rebuild_reminders(context: ContextTypes.DEFAULT_TYPE):
 
         _remove_user_jobs(context.job_queue, chat_id)
         reminders = build_reminders(profile)
-        _schedule_jobs(context.job_queue, chat_id, reminders)
+        _schedule_jobs(context.job_queue, chat_id, uid, reminders)
         print(
             f"[AUTO] uid={uid} rebuilt {len(reminders)} reminders: {[r['time'] for r in reminders]}",
             flush=True,
