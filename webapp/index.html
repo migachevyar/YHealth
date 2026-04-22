@@ -48,8 +48,17 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Inter'
 .tab.active i{color:var(--green)}
 .tab.active span{color:var(--green)}
 .tab:not(.active) i{color:var(--text3)}
-/* RINGS */
-.rings{display:flex;gap:9px;padding:10px 0 4px}
+/* ── Animations ── */
+@keyframes ring-fill{from{stroke-dashoffset:163.4}}
+.ring-animated{animation:ring-fill .8s cubic-bezier(.4,0,.2,1) both}
+@keyframes ring-pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.06)}}
+.ring-card.complete{animation:ring-pulse .4s cubic-bezier(.34,1.56,.64,1)}
+@keyframes check-pop{0%{transform:scale(0) rotate(-10deg)}60%{transform:scale(1.25) rotate(4deg)}100%{transform:scale(1) rotate(0)}}
+.meal-check.on i,.vit-check.on i{animation:check-pop .3s cubic-bezier(.34,1.56,.64,1) both}
+@keyframes card-done{0%{background:var(--card)}50%{background:rgba(52,199,89,0.08)}100%{background:var(--card)}}
+.meal-card.just-done{animation:card-done .5s ease}
+@keyframes slide-up-in{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+.screen:not(.hidden){animation:slide-up-in .22s cubic-bezier(.4,0,.2,1)}display:flex;gap:9px;padding:10px 0 4px}
 .ring-card{flex:1;background:var(--card);border:.5px solid var(--border);border-radius:var(--r);padding:12px 6px;display:flex;flex-direction:column;align-items:center;gap:5px}
 .ring-wrap{position:relative;width:64px;height:64px}
 .ring-wrap svg{width:64px;height:64px;transform:rotate(-90deg)}
@@ -660,7 +669,22 @@ function dateKey(d){ return `${d.getFullYear()}-${String(d.getMonth()+1).padStar
 function todayKey(){ return dateKey(new Date()); }
 
 async function loadAll(){
-  profile = await CS.get('profile');
+  // Собираем все ключи для параллельной загрузки
+  const todayK = todayKey();
+  const dayKeys = [];
+  for(let i=0;i<7;i++){
+    const d=new Date(); d.setDate(d.getDate()-i);
+    dayKeys.push(dateKey(d));
+  }
+
+  // Грузим всё параллельно — вместо 9 последовательных await
+  const keys = ['profile', 'day_'+todayK, 'weights', ...dayKeys.map(k=>'day_'+k)];
+  const results = await Promise.all(keys.map(k=>CS.get(k)));
+  const byKey = {};
+  keys.forEach((k,i)=>{ byKey[k]=results[i]; });
+
+  profile = byKey['profile'] || null;
+
   // Migrate meds: old {time} → new {times:[]}
   if(profile?.meds){
     profile.meds = profile.meds.map(m=>{
@@ -669,33 +693,42 @@ async function loadAll(){
       return m;
     });
   }
-  const key = todayKey();
-  dayState = (await CS.get('day_'+key)) || { meals:{}, vitamins:{}, water:0 };
-  const rawWeights = (await CS.get('weights')) || [];
-  // Migrate old format {date: value} to array if needed
-  if(!Array.isArray(rawWeights)) {
+
+  dayState = byKey['day_'+todayK] || { meals:{}, vitamins:{}, water:0 };
+
+  const rawWeights = byKey['weights'] || [];
+  if(!Array.isArray(rawWeights)){
     weights = Object.entries(rawWeights).map(([date,value])=>({date,value:parseFloat(value)})).sort((a,b)=>b.date.localeCompare(a.date));
     await saveWeights();
   } else {
     weights = rawWeights;
   }
-  // Seed from profile if empty
   if(weights.length===0 && profile?.weight){
-    weights = [{date: todayKey(), value: parseFloat(profile.weight), ts: Date.now()}];
+    weights=[{date:todayK,value:parseFloat(profile.weight),ts:Date.now()}];
     await saveWeights();
   }
-  // Load last 7 days for stats
-  for(let i=0;i<7;i++){
-    const d = new Date(); d.setDate(d.getDate()-i);
-    const k = dateKey(d);
-    allDays[k] = (await CS.get('day_'+k)) || {};
-  }
+
+  dayKeys.forEach(k=>{ allDays[k] = byKey['day_'+k] || {}; });
 }
 
 async function saveDayState(){
+  // CloudStorage write — единственный await, не блокирует UI долго
   await CS.set('day_'+todayKey(), dayState);
   allDays[todayKey()] = dayState;
-  saveProfile();
+  // Синхронизируем дневные данные с сервером в фоне (не блокируем UI)
+  _pushDayAsync();
+}
+
+function _pushDayAsync(){
+  if(!TG_USER?.id && !_resolvedUid) return;
+  const uid = _resolvedUid || String(TG_USER.id||0);
+  if(!uid) return;
+  const date = todayKey();
+  fetch(API+'/api/day',{
+    method:'POST',
+    headers:{'Content-Type':'application/json','X-Init-Data':INIT_DATA},
+    body:JSON.stringify({uid, date, data:dayState})
+  }).catch(()=>{});
 }
 async function pushScheduleToServer() {
   if(!TG_USER.id) return;
@@ -966,14 +999,35 @@ function getDailySuggestions(mealType){
 }
 
 // ─── RINGS ───
-function setRing(id, pct){
+const RING_C = 163.4;
+let _ringsInitialized = false;
+
+function setRing(id, pct, animate=false){
   const el = document.getElementById(id);
   if(!el) return;
-  const c = 163.4;
-  el.style.strokeDashoffset = c - (pct/100)*c;
+  const offset = RING_C - (pct/100)*RING_C;
+  if(animate){
+    el.style.strokeDashoffset = RING_C; // start from 0
+    el.classList.remove('ring-animated');
+    void el.offsetWidth; // reflow
+    el.style.transition = 'stroke-dashoffset .8s cubic-bezier(.4,0,.2,1)';
+    requestAnimationFrame(()=>{ el.style.strokeDashoffset = offset; });
+  } else {
+    el.style.transition = 'stroke-dashoffset .35s cubic-bezier(.4,0,.2,1)';
+    el.style.strokeDashoffset = offset;
+  }
 }
 
-function updateRings(){
+function _pulseRingCard(ringId){
+  const card = document.getElementById(ringId)?.closest('.ring-card');
+  if(!card) return;
+  card.classList.remove('complete');
+  void card.offsetWidth;
+  card.classList.add('complete');
+  setTimeout(()=>card.classList.remove('complete'), 400);
+}
+
+function updateRings(animate=false){
   const sched = getMealSchedule().filter(m=>m.enabled);
   const vits = getActiveVits();
   const wGoal = 2.5;
@@ -988,9 +1042,25 @@ function updateRings(){
   const wp = Math.round(Math.min(w/wGoal,1)*100);
   const vp = vTotal?Math.round(vDone/vTotal*100):0;
 
-  setRing('rf',fp); document.getElementById('rf-v').textContent=fp+'%'; document.getElementById('rf-s').textContent=mDone+' из '+mTotal;
-  setRing('rw',wp); document.getElementById('rw-v').textContent=wp+'%'; document.getElementById('rw-s').textContent=w.toFixed(1)+' л';
-  setRing('rv',vp); document.getElementById('rv-v').textContent=vp+'%'; document.getElementById('rv-s').textContent=vDone+' из '+vTotal;
+  const doAnim = animate && !_ringsInitialized;
+
+  setRing('rf', fp, doAnim);
+  document.getElementById('rf-v').textContent=fp+'%';
+  document.getElementById('rf-s').textContent=mDone+' из '+mTotal;
+
+  setRing('rw', wp, doAnim);
+  document.getElementById('rw-v').textContent=wp+'%';
+  document.getElementById('rw-s').textContent=w.toFixed(1)+' л';
+
+  setRing('rv', vp, doAnim);
+  document.getElementById('rv-v').textContent=vp+'%';
+  document.getElementById('rv-s').textContent=vDone+' из '+vTotal;
+
+  if(fp===100) _pulseRingCard('rf');
+  if(wp===100) _pulseRingCard('rw');
+  if(vp===100) _pulseRingCard('rv');
+
+  _ringsInitialized = true;
 }
 
 // ─── WATER ───
@@ -1059,12 +1129,14 @@ async function toggleMeal(id){
     dayState.water=(dayState.water||0)+(was?-m.waterAmount:m.waterAmount);
     if(dayState.water<0) dayState.water=0;
     renderBottles();
-    saveProfile();
   }
-  await saveDayState();
-  document.getElementById('mc-'+id)?.classList.toggle('done',!!dayState.meals[id]);
-  document.getElementById('mch-'+id)?.classList.toggle('on',!!dayState.meals[id]);
+  const card=document.getElementById('mc-'+id);
+  const chk=document.getElementById('mch-'+id);
+  const nowDone=!!dayState.meals[id];
+  if(card){ card.classList.toggle('done',nowDone); if(nowDone){card.classList.add('just-done');setTimeout(()=>card.classList.remove('just-done'),500);} }
+  if(chk) chk.classList.toggle('on',nowDone);
   updateRings();
+  saveDayState(); // fire-and-forget, no await — не блокируем UI
 }
 
 function toggleMealDetail(id){ document.getElementById('md-'+id)?.classList.toggle('open'); }
@@ -1106,14 +1178,16 @@ function renderVits(){
   }).join('');
 }
 
-async function toggleVit(id){
+function toggleVit(id){
   if(!dayState.vitamins) dayState.vitamins={};
   dayState.vitamins[id]=!dayState.vitamins[id];
-  await saveDayState();
-  document.getElementById('vc-'+id)?.classList.toggle('done',!!dayState.vitamins[id]);
-  document.getElementById('vch-'+id)?.classList.toggle('on',!!dayState.vitamins[id]);
+  const nowDone=!!dayState.vitamins[id];
+  const card=document.getElementById('vc-'+id);
+  const chk=document.getElementById('vch-'+id);
+  if(card) card.classList.toggle('done',nowDone);
+  if(chk){ chk.classList.toggle('on',nowDone); }
   updateRings();
-  saveProfile();
+  saveDayState(); // fire-and-forget
 }
 
 function toggleVitDetail(id){ document.getElementById('vd-'+id)?.classList.toggle('open'); }
@@ -2124,12 +2198,14 @@ async function toggleMed(i){
 }
 
 function loadApp(){
+  _ringsInitialized = false; // reset so first render animates
   renderDate();
   renderBottles();
   renderMeals();
   renderVits();
   renderMedsToday();
-  updateRings();
+  // Small delay so DOM is painted before animation starts
+  requestAnimationFrame(()=>{ updateRings(true); });
 }
 
 // ─── INIT ───
