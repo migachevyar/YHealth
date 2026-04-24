@@ -541,7 +541,16 @@ body{
 const tg = window.Telegram?.WebApp;
 const TG_USER = tg?.initDataUnsafe?.user || {};
 const INIT_DATA = tg?.initData || '';
+const _qs = new URLSearchParams(window.location.search);
 const API = '__WEBAPP_URL__'.split('?')[0];
+const __isLikelyPreviewReferrer = (() => {
+  try { return /preview-local\.html/i.test(document.referrer || ''); } catch(_) { return false; }
+})();
+const IS_LOCAL_PREVIEW =
+  _qs.get('localPreview') === '1' ||
+  (_qs.get('demoSeed') === '1') ||
+  (!tg && window.location.protocol === 'file:' && __isLikelyPreviewReferrer);
+const FORCE_PREVIEW_SEED = _qs.get('demoSeed') === '1';
 let _resolvedUid = TG_USER.id || 0;
 if(tg){
   tg.expand(); tg.ready();
@@ -594,6 +603,131 @@ const DAYS_S = ['Вс','Пн','Вт','Ср','Чт','Пт','Сб'];
 
 function dateKey(d){ return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
 function todayKey(){ return dateKey(new Date()); }
+
+function buildPreviewDemoBundle(){
+  const names = ['Ян', 'Алекс', 'Марк', 'Илья', 'Ник'];
+  const goals = ['build_muscle', 'maintain', 'lose_weight'];
+  const heights = [176, 179, 182, 185];
+  const weightsPool = [74.2, 78.6, 82.4, 86.1];
+  const seed = Math.floor(Date.now() / 1000);
+  const pick = (arr, salt=0) => arr[(seed + salt) % arr.length];
+
+  const profileDemo = {
+    name: pick(names, 1),
+    goal: pick(goals, 2),
+    sex: 'male',
+    age: 27 + ((seed % 9 + 9) % 9),
+    weight: pick(weightsPool, 3),
+    height: pick(heights, 4),
+    breakfastTime: '08:00',
+    schedule: [
+      { id:'water', name:'Вода', time:'07:30', enabled:true, icon:'ph-drop', color:'var(--blue)', bg:'var(--blue3)', isWater:true, waterAmount:0.25 },
+      { id:'breakfast', name:'Завтрак', time:'08:00', enabled:true, icon:'ph-coffee', color:'var(--orange)', bg:'var(--orange3)' },
+      { id:'snack1', name:'Перекус 1', time:'10:30', enabled:true, icon:'ph-nut', color:'var(--green)', bg:'var(--green3)' },
+      { id:'lunch', name:'Обед', time:'13:00', enabled:true, icon:'ph-bowl-food', color:'var(--teal)', bg:'var(--teal3)' },
+      { id:'snack2', name:'Перекус 2', time:'16:30', enabled:true, icon:'ph-orange-slice', color:'var(--orange)', bg:'var(--orange3)' },
+      { id:'dinner', name:'Ужин', time:'19:00', enabled:true, icon:'ph-fork-knife', color:'var(--purple)', bg:'var(--purple3)' }
+    ],
+    vitamins:['omega','vitd','magnesium','zinc'],
+    vitTimes:{ magnesium:'22:30', zinc:'13:15' },
+    vitHidden:[],
+    meds:[{ name:'Омепразол', dose:'20 мг', times:['08:00'] }],
+    medsHidden:[],
+    joinDate:new Date().toISOString().slice(0,10)
+  };
+
+  const today = new Date();
+  const allDaysDemo = {};
+  for(let i=0;i<7;i++){
+    const d = new Date(today); d.setDate(today.getDate()-i);
+    allDaysDemo[dateKey(d)] = {
+      meals:{ breakfast:true, lunch:i%2===0, dinner:i<=3, snack1:i<=4, snack2:i<=2 },
+      vitamins:{ omega:true, vitd:i<=4, magnesium:i<=2, zinc:i%2===0 },
+      meds:{ 0:i<=3 },
+      water:Number((1.3 + Math.max(0,6-i)*0.2).toFixed(2))
+    };
+  }
+
+  const weightsDemo = [];
+  for(let i=0;i<10;i++){
+    const d = new Date(today); d.setDate(today.getDate()-i);
+    weightsDemo.push({
+      date:dateKey(d),
+      value:Number((Number(profileDemo.weight) - i*0.07).toFixed(1)),
+      ts:Date.now()-i*86400000
+    });
+  }
+
+  return {
+    profile: profileDemo,
+    dayState: allDaysDemo[todayKey()],
+    allDays: allDaysDemo,
+    weights: weightsDemo
+  };
+}
+
+function seedLocalPreviewDataIfNeeded(){
+  if(!IS_LOCAL_PREVIEW) return;
+  try{
+    if(!FORCE_PREVIEW_SEED && localStorage.getItem('yh_profile')) return;
+    const profileDemo = {
+      name:'Ян', goal:'build_muscle', sex:'male', age:31, weight:82.4, height:182,
+      breakfastTime:'08:00',
+      schedule:[
+        { id:'water', name:'Вода', time:'07:30', enabled:true, icon:'ph-drop', color:'var(--blue)', bg:'var(--blue3)', isWater:true, waterAmount:0.25 },
+        { id:'breakfast', name:'Завтрак', time:'08:00', enabled:true, icon:'ph-coffee', color:'var(--orange)', bg:'var(--orange3)' },
+        { id:'snack1', name:'Перекус 1', time:'10:30', enabled:true, icon:'ph-nut', color:'var(--green)', bg:'var(--green3)' },
+        { id:'lunch', name:'Обед', time:'12:30', enabled:true, icon:'ph-bowl-food', color:'var(--teal)', bg:'var(--teal3)' },
+        { id:'snack2', name:'Перекус 2', time:'16:00', enabled:true, icon:'ph-orange-slice', color:'var(--orange)', bg:'var(--orange3)' },
+        { id:'dinner', name:'Ужин', time:'19:00', enabled:true, icon:'ph-fork-knife', color:'var(--purple)', bg:'var(--purple3)' },
+        { id:'custom_1', name:'Протеин', time:'21:00', enabled:true, icon:'ph-barbell', isCustom:true, color:'var(--blue)', bg:'var(--blue3)' }
+      ],
+      vitamins:['omega','vitd','magnesium','creatine','zinc'],
+      vitTimes:{ magnesium:'22:30', zinc:'13:00' },
+      vitHidden:[],
+      meds:[
+        { name:'Омепразол', dose:'20 мг', times:['08:00'] },
+        { name:'Витамин C', dose:'500 мг', times:['11:00','18:00'] }
+      ],
+      medsHidden:[],
+      joinDate:new Date().toISOString().slice(0,10)
+    };
+    localStorage.setItem('yh_profile', JSON.stringify(profileDemo));
+
+    const now = new Date();
+    const weightsDemo = [];
+    for(let i=0;i<10;i++){
+      const d = new Date(now); d.setDate(now.getDate()-i);
+      weightsDemo.push({ date:dateKey(d), value:Number((82.8 - i*0.08).toFixed(1)), ts:Date.now()-i*86400000 });
+    }
+    localStorage.setItem('yh_weights', JSON.stringify(weightsDemo));
+
+    for(let i=0;i<7;i++){
+      const d = new Date(now); d.setDate(now.getDate()-i);
+      const dd = {
+        meals:{
+          breakfast:true,
+          lunch:i%2===0,
+          dinner:i<=3,
+          snack1:i<=4,
+          snack2:i<=2
+        },
+        vitamins:{
+          omega:true,
+          vitd:i<=4,
+          magnesium:i<=2,
+          creatine:i<=5,
+          zinc:i%2===0
+        },
+        meds:{ 0:i<=3, 1:i<=2 },
+        water:Number((1.2 + Math.max(0,6-i)*0.23).toFixed(2))
+      };
+      localStorage.setItem('yh_day_'+dateKey(d), JSON.stringify(dd));
+    }
+  }catch(e){
+    console.warn('preview seed failed:', e);
+  }
+}
 
 async function loadAll(){
   profile = await CS.get('profile');
@@ -1909,6 +2043,37 @@ function initSwipeDelete(rowEl, onDelete) {
     rowEl.classList.add('deleting');
     setTimeout(onDelete, 300);
   });
+
+  // Desktop fallback for local preview (mouse can't do touch swipe)
+  if (IS_LOCAL_PREVIEW) {
+    const desktopBtn = document.createElement('button');
+    desktopBtn.type = 'button';
+    desktopBtn.textContent = rowEl.classList.contains('open') ? 'Скрыть удаление' : 'Удалить';
+    desktopBtn.style.cssText = [
+      'margin:6px 0 8px 56px',
+      'font-size:11px',
+      'font-weight:700',
+      'padding:6px 9px',
+      'border-radius:8px',
+      'border:1px solid rgba(255,255,255,.14)',
+      'background:rgba(255,255,255,.06)',
+      'color:var(--text2)',
+      'cursor:pointer'
+    ].join(';');
+    desktopBtn.addEventListener('click', e => {
+      e.preventDefault();
+      if (!rowEl.classList.contains('open')) {
+        if (_swipeActive && _swipeActive !== rowEl) _swipeActive.classList.remove('open');
+        rowEl.classList.add('open');
+        _swipeActive = rowEl;
+        desktopBtn.textContent = 'Подтвердить удаление';
+      } else {
+        rowEl.classList.add('deleting');
+        setTimeout(onDelete, 300);
+      }
+    });
+    rowEl.insertAdjacentElement('afterend', desktopBtn);
+  }
 }
 
 // Close any open swipe row when tapping elsewhere
@@ -1959,14 +2124,124 @@ function loadApp(){
   updateRings();
 }
 
+function forcePreviewFallbackContent(){
+  if(!IS_LOCAL_PREVIEW) return;
+  const mealsEl = document.getElementById('meals-list');
+  if(mealsEl && !mealsEl.children.length){
+    mealsEl.innerHTML = `
+      <div class="meal-card done">
+        <div class="meal-hdr">
+          <div class="meal-ico" style="background:var(--orange3)"><i class="ph ph-coffee" style="color:var(--orange)"></i></div>
+          <div style="flex:1"><div class="meal-name">Завтрак</div><div class="meal-time-lbl">08:00</div></div>
+          <div class="meal-check on"><i class="ph ph-check"></i></div>
+        </div>
+      </div>
+      <div class="meal-card">
+        <div class="meal-hdr">
+          <div class="meal-ico" style="background:var(--teal3)"><i class="ph ph-bowl-food" style="color:var(--teal)"></i></div>
+          <div style="flex:1"><div class="meal-name">Обед</div><div class="meal-time-lbl">13:00</div></div>
+          <div class="meal-check"><i class="ph ph-check"></i></div>
+        </div>
+      </div>
+      <div class="meal-card">
+        <div class="meal-hdr">
+          <div class="meal-ico" style="background:var(--purple3)"><i class="ph ph-fork-knife" style="color:var(--purple)"></i></div>
+          <div style="flex:1"><div class="meal-name">Ужин</div><div class="meal-time-lbl">19:00</div></div>
+          <div class="meal-check"><i class="ph ph-check"></i></div>
+        </div>
+      </div>`;
+  }
+
+  const vitsEl = document.getElementById('vits-list');
+  if(vitsEl && !vitsEl.children.length){
+    vitsEl.innerHTML = `
+      <div class="vit-card">
+        <div class="vit-hdr">
+          <div class="vit-dot" style="background:var(--orange3)"><i class="ph ph-drop-half" style="color:var(--orange)"></i></div>
+          <div style="flex:1"><div class="vit-name">Омега-3</div><div class="vit-meta"><span class="vit-time-badge" style="color:var(--orange)">08:00</span><span>с завтраком</span></div></div>
+          <div class="vit-check"><i class="ph ph-check"></i></div>
+        </div>
+      </div>
+      <div class="vit-card">
+        <div class="vit-hdr">
+          <div class="vit-dot" style="background:var(--blue3)"><i class="ph ph-sun" style="color:var(--blue)"></i></div>
+          <div style="flex:1"><div class="vit-name">Витамин D3+K2</div><div class="vit-meta"><span class="vit-time-badge" style="color:var(--blue)">08:00</span><span>с завтраком</span></div></div>
+          <div class="vit-check"><i class="ph ph-check"></i></div>
+        </div>
+      </div>`;
+  }
+
+  const foodEl = document.getElementById('food-content');
+  if(foodEl && !foodEl.children.length){
+    foodEl.innerHTML = `
+      <div class="food-item">
+        <div class="food-hdr">
+          <div class="food-ico" style="background:var(--orange3)"><i class="ph ph-coffee" style="color:var(--orange)"></i></div>
+          <div><div class="food-name">Завтрак</div><div class="food-sub">3 варианта на сегодня</div></div>
+        </div>
+      </div>
+      <div class="food-item">
+        <div class="food-hdr">
+          <div class="food-ico" style="background:var(--teal3)"><i class="ph ph-bowl-food" style="color:var(--teal)"></i></div>
+          <div><div class="food-name">Обед</div><div class="food-sub">3 варианта на сегодня</div></div>
+        </div>
+      </div>
+      <div class="food-item">
+        <div class="food-hdr">
+          <div class="food-ico" style="background:var(--purple3)"><i class="ph ph-fork-knife" style="color:var(--purple)"></i></div>
+          <div><div class="food-name">Ужин</div><div class="food-sub">3 варианта на сегодня</div></div>
+        </div>
+      </div>`;
+  }
+
+  const mealSchedEl = document.getElementById('meal-schedule-list');
+  if(mealSchedEl && !mealSchedEl.children.length){
+    mealSchedEl.innerHTML = `
+      <div class="p-row"><div class="p-row-ico" style="background:var(--orange3)"><i class="ph ph-coffee" style="color:var(--orange)"></i></div><span class="p-row-label">Завтрак</span><input type="time" value="08:00" class="p-time-input" style="margin-right:8px"/><div class="ntoggle on"><div class="ntoggle-knob"></div></div></div>
+      <div class="p-row"><div class="p-row-ico" style="background:var(--teal3)"><i class="ph ph-bowl-food" style="color:var(--teal)"></i></div><span class="p-row-label">Обед</span><input type="time" value="13:00" class="p-time-input" style="margin-right:8px"/><div class="ntoggle on"><div class="ntoggle-knob"></div></div></div>
+      <div class="p-row"><div class="p-row-ico" style="background:var(--purple3)"><i class="ph ph-fork-knife" style="color:var(--purple)"></i></div><span class="p-row-label">Ужин</span><input type="time" value="19:00" class="p-time-input" style="margin-right:8px"/><div class="ntoggle on"><div class="ntoggle-knob"></div></div></div>
+      <div class="add-btn"><i class="ph ph-plus-circle" style="font-size:20px"></i>Добавить приём</div>`;
+  }
+
+  const vitSchedEl = document.getElementById('vit-schedule-list');
+  if(vitSchedEl && !vitSchedEl.children.length){
+    vitSchedEl.innerHTML = `
+      <div class="p-row"><div class="p-row-ico" style="background:var(--orange3)"><i class="ph ph-drop-half" style="color:var(--orange)"></i></div><span class="p-row-label">Омега-3</span><input type="time" value="08:00" class="p-time-input" style="margin-right:8px"/><div class="ntoggle on"><div class="ntoggle-knob"></div></div></div>
+      <div class="p-row"><div class="p-row-ico" style="background:var(--blue3)"><i class="ph ph-sun" style="color:var(--blue)"></i></div><span class="p-row-label">Витамин D3+K2</span><input type="time" value="08:00" class="p-time-input" style="margin-right:8px"/><div class="ntoggle on"><div class="ntoggle-knob"></div></div></div>
+      <div class="add-btn" style="border-top:.5px solid var(--border)"><i class="ph ph-plus-circle" style="font-size:19px"></i>Добавить витамин</div>`;
+  }
+
+  const medsEl = document.getElementById('meds-list');
+  if(medsEl && medsEl.children.length <= 1){
+    medsEl.innerHTML = `
+      <div class="med-block">
+        <div class="med-header">
+          <div class="p-row-ico" style="background:var(--red3)"><i class="ph ph-pill" style="color:var(--red)"></i></div>
+          <div style="flex:1"><div class="p-row-label">Омепразол</div><div style="font-size:11px;color:var(--text3)">20 мг</div></div>
+          <div class="ntoggle on"><div class="ntoggle-knob"></div></div>
+        </div>
+        <div class="med-times-body"><div class="med-time-row"><input type="time" value="08:00" class="p-time-input" style="font-size:13px"/></div></div>
+      </div>
+      <div class="add-btn"><i class="ph ph-plus-circle" style="font-size:20px"></i>Добавить лекарство</div>`;
+  }
+}
+
 // ─── INIT ───
 async function init(){
+  seedLocalPreviewDataIfNeeded();
   if(!_resolvedUid) {
     try { const s = await CS.get('_uid'); if(s) _resolvedUid = s; } catch(e) {}
   } else {
     try { await CS.set('_uid', _resolvedUid); } catch(e) {}
   }
   await loadAll();
+  if(IS_LOCAL_PREVIEW){
+    const demo = buildPreviewDemoBundle();
+    profile = demo.profile;
+    dayState = demo.dayState;
+    allDays = demo.allDays;
+    weights = demo.weights;
+  }
   if(!profile){
     document.getElementById('ob').style.display='flex';
     document.getElementById('ob').classList.remove('hidden');
@@ -1974,6 +2249,16 @@ async function init(){
   } else {
     document.getElementById('ob').style.display='none';
     loadApp();
+    if(IS_LOCAL_PREVIEW){
+      renderProfile();
+      renderFood();
+      renderStats();
+      forcePreviewFallbackContent();
+      const firstTab = document.querySelector('.tabbar .tab');
+      if(firstTab){
+        switchTab('today', firstTab);
+      }
+    }
   }
 }
 
