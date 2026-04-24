@@ -187,6 +187,18 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Inter'
   100%{max-height:0;opacity:0;padding-top:0;padding-bottom:0;margin:0}
 }
 .swipe-row.deleting{animation:swipe-collapse .32s cubic-bezier(.4,0,.2,1) forwards;overflow:hidden;pointer-events:none}
+/* Vitamin swipe */
+.swipe-row{position:relative;overflow:hidden}
+.swipe-content{transition:transform .25s cubic-bezier(.4,0,.2,1);will-change:transform;background:var(--card)}
+.swipe-2btn.open .swipe-content{transform:translateX(-72px)}
+.swipe-2btn.open .swipe-act-settings{transform:translateX(0)}
+.swipe-act-settings{position:absolute;right:0;top:0;bottom:0;width:72px;background:var(--blue);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;cursor:pointer;transform:translateX(72px);transition:transform .25s cubic-bezier(.4,0,.2,1)}
+/* Freq pills & days */
+.freq-pill{padding:6px 12px;border-radius:20px;border:.5px solid var(--border);background:var(--bg3);font-size:12px;color:var(--text2);cursor:pointer;font-family:inherit;font-weight:500;transition:all .18s}
+.freq-pill.on{background:rgba(10,132,255,0.15);border-color:var(--blue);color:var(--blue)}
+.freq-days{display:flex;gap:5px;flex-wrap:wrap}
+.freq-day{width:34px;height:34px;border-radius:50%;border:.5px solid var(--border);background:var(--bg3);font-size:10px;font-weight:600;color:var(--text3);cursor:pointer;display:flex;align-items:center;justify-content:center;font-family:inherit;transition:all .18s;flex-shrink:0}
+.freq-day.on{background:rgba(10,132,255,0.18);border-color:var(--blue);color:var(--blue)}
 /* Edit profile modal */
 .ep-goal{display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--bg3);border-radius:11px;cursor:pointer;border:1.5px solid transparent;margin-bottom:6px;transition:all .18s}
 .ep-goal.active{border-color:rgba(47,209,88,.4);background:rgba(47,209,88,.07)}
@@ -936,17 +948,13 @@ function renderMeals(){
     const col=m.color||(isCustom?CUSTOM_MEAL_COLORS[customIdx%CUSTOM_MEAL_COLORS.length]:stdColors[m.id]||'var(--green)');
     const bg=m.bg||(isCustom?CUSTOM_MEAL_BGS[customIdx%CUSTOM_MEAL_BGS.length]:stdBgs[m.id]||'var(--green3)');
     if(isCustom) customIdx++;
-    const sugs = ['snack1','snack2'].includes(m.id)?getDailySuggestions('snack'):getDailySuggestions(m.id);
     return `<div class="meal-card ${done?'done':''}" id="mc-${m.id}">
-      <div class="meal-hdr" onclick="toggleMealDetail('${m.id}')">
+      <div class="meal-hdr" ${m.isWater?`onclick="toggleMealDetail('${m.id}')"`:''}>
         <div class="meal-ico" style="background:${bg}"><i class="ph ${m.icon||'ph-bowl-food'}" style="color:${col}"></i></div>
         <div style="flex:1;min-width:0"><div class="meal-name">${m.name}</div><div class="meal-time-lbl">${m.time}</div></div>
         <div class="meal-check ${done?'on':''}" id="mch-${m.id}" onclick="event.stopPropagation();toggleMeal('${m.id}')"><i class="ph ph-check"></i></div>
       </div>
-      <div class="meal-detail" id="md-${m.id}">
-        ${m.isWater?`<div class="sug"><div class="sug-name">Стакан воды</div><div class="sug-desc">250–300 мл сразу после подъёма. Запускает метаболизм и пищеварение.</div></div>`:
-        sugs.map(s=>`<div class="sug"><div class="sug-name">${s.name}</div><div class="sug-desc">${s.desc}</div>${s.macro?`<div class="sug-desc" style="color:var(--text3);margin-top:3px">${s.macro}</div>`:''}</div>`).join('')}
-      </div>
+      ${m.isWater?`<div class="meal-detail" id="md-${m.id}"><div class="sug"><div class="sug-name">Стакан воды</div><div class="sug-desc">250–300 мл сразу после подъёма. Запускает метаболизм и пищеварение.</div></div></div>`:''}
     </div>`;
   }).join('');
 }
@@ -973,8 +981,19 @@ function toggleMealDetail(id){ document.getElementById('md-'+id)?.classList.togg
 // ─── VITAMINS ───
 function getActiveVits(){
   if(!profile?.vitamins?.length) return [];
-  const hidden = profile?.vitHidden||[];
-  return VITS_ALL.filter(v=>profile.vitamins.includes(v.id) && !hidden.includes(v.id));
+  return VITS_ALL.filter(v=>profile.vitamins.includes(v.id) && isVitActiveToday(v.id));
+}
+
+function isVitActiveToday(id){
+  const s=profile?.vitFreq?.[id];
+  if(!s||s.type==='every') return true;
+  if(s.type==='other'){
+    const start=new Date(new Date().getFullYear(),0,1);
+    const dayNum=Math.floor((Date.now()-start)/86400000);
+    return dayNum%2===0;
+  }
+  if(s.type==='days'&&s.days?.length) return s.days.includes(new Date().getDay());
+  return true;
 }
 
 function renderVits(){
@@ -1328,39 +1347,174 @@ async function resetSchedule(){
   updateRings();
 }
 
+// ── Vitamin frequency helpers ───────────────────────────────────────────────
+function getVitFreqLabel(id){
+  const s=profile?.vitFreq?.[id];
+  if(!s||s.type==='every') return 'каждый день';
+  if(s.type==='other') return 'через день';
+  if(s.type==='days'&&s.days?.length){
+    const n=['Вс','Пн','Вт','Ср','Чт','Пт','Сб'];
+    return s.days.map(d=>n[d]).join(', ');
+  }
+  return 'каждый день';
+}
+
+let _vitSheetId=null, _swipeActive=null;
+
+function openVitSheet(id){
+  _vitSheetId=id;
+  if(_swipeActive){_swipeActive.classList.remove('open');_swipeActive=null;}
+  const s=profile?.vitFreq?.[id]||{type:'every'};
+  const times=(profile?.vitTimes?.[id])||getVitTime(id,profile);
+  const timeArr=Array.isArray(times)?times:[times];
+  const v=VITS_ALL.find(x=>x.id===id);
+  // build sheet html
+  const timesHtml=timeArr.map((t,i)=>`
+    <div class="vit-time-row" id="vtr-${id}-${i}" style="display:flex;align-items:center;gap:7px;margin-bottom:6px">
+      <input type="time" value="${t}" class="p-time-input" style="font-size:14px;font-weight:700;color:var(--blue);flex:1" onchange="updateVitSheetTime('${id}',${i},this.value)"/>
+      ${timeArr.length>1?`<button class="med-time-minus" onclick="removeVitSheetTime('${id}',${i})">−</button>`:''}
+    </div>`).join('');
+  const sheet=document.getElementById('vit-sheet-'+id);
+  if(!sheet) return;
+  document.getElementById('vfs-pills-'+id).querySelectorAll('.freq-pill').forEach(p=>p.classList.toggle('on',p.dataset.freq===s.type));
+  document.getElementById('vfs-drow-'+id).style.display=s.type==='days'?'flex':'none';
+  const days=s.days||[];
+  document.getElementById('vfs-drow-'+id).querySelectorAll('.freq-day').forEach(b=>b.classList.toggle('on',days.includes(parseInt(b.dataset.day))));
+  document.getElementById('vfs-times-'+id).innerHTML=timesHtml;
+  sheet.style.display='block';
+  sheet.scrollIntoView({behavior:'smooth',block:'nearest'});
+}
+
+function closeVitSheet(id){
+  const s=document.getElementById('vit-sheet-'+id);
+  if(s) s.style.display='none';
+  _vitSheetId=null;
+}
+
+function setVitFreqType(id,type){
+  document.getElementById('vfs-pills-'+id).querySelectorAll('.freq-pill').forEach(p=>p.classList.toggle('on',p.dataset.freq===type));
+  document.getElementById('vfs-drow-'+id).style.display=type==='days'?'flex':'none';
+}
+
+function updateVitSheetTime(id,i,val){
+  if(!profile.vitTimes) profile.vitTimes={};
+  const cur=profile.vitTimes[id];
+  const arr=Array.isArray(cur)?[...cur]:[cur||getVitTime(id,profile)];
+  arr[i]=val;
+  profile.vitTimes[id]=arr.length===1?arr[0]:arr;
+}
+
+function addVitSheetTime(id){
+  if(!profile.vitTimes) profile.vitTimes={};
+  const cur=profile.vitTimes[id];
+  const arr=Array.isArray(cur)?[...cur]:[cur||getVitTime(id,profile)];
+  arr.push('20:00');
+  profile.vitTimes[id]=arr;
+  openVitSheet(id);
+}
+
+function removeVitSheetTime(id,i){
+  const cur=profile.vitTimes?.[id];
+  const arr=Array.isArray(cur)?[...cur]:[cur||getVitTime(id,profile)];
+  if(arr.length<=1) return;
+  arr.splice(i,1);
+  profile.vitTimes[id]=arr.length===1?arr[0]:arr;
+  openVitSheet(id);
+}
+
+async function saveVitSheet(id){
+  const type=document.getElementById('vfs-pills-'+id).querySelector('.freq-pill.on')?.dataset.freq||'every';
+  const days=[...document.getElementById('vfs-drow-'+id).querySelectorAll('.freq-day.on')].map(b=>parseInt(b.dataset.day));
+  if(!profile.vitFreq) profile.vitFreq={};
+  profile.vitFreq[id]={type,days};
+  await saveProfile();
+  closeVitSheet(id);
+  renderVitScheduleList();
+  renderVits();
+  updateRings();
+}
+
+// Toggle = add/remove from profile.vitamins
+async function toggleVitActive(id){
+  if(!profile.vitamins) profile.vitamins=[];
+  const idx=profile.vitamins.indexOf(id);
+  if(idx>=0){ profile.vitamins.splice(idx,1); }
+  else { profile.vitamins.push(id); }
+  await saveProfile();
+  renderVitScheduleList();
+  renderVits();
+  updateRings();
+}
+
 function renderVitScheduleList(){
   const el=document.getElementById('vit-schedule-list'); if(!el) return;
-  const allVits = VITS_ALL;
-  const selectedIds = profile?.vitamins||[];
-  const hiddenIds = profile?.vitHidden||[];
+  const allVits=VITS_ALL;
+  const selectedIds=profile?.vitamins||[];
 
-  // Selected vitamins rows
-  let h = selectedIds.map(id=>{
-    const v = allVits.find(x=>x.id===id); if(!v) return '';
-    const t = getVitTime(v.id, profile);
-    const hidden = hiddenIds.includes(v.id);
-    return `<div class="p-row">
-      <div class="p-row-ico" style="background:${v.bg}"><i class="ph ${v.icon}" style="color:${v.color}"></i></div>
-      <span class="p-row-label">${v.name}</span>
-      <input type="time" value="${t}" class="p-time-input" style="margin-right:8px" onchange="debounceVitTime('${v.id}',this.value)"/>
-      <div class="ntoggle ${hidden?'':'on'}" onclick="toggleVitVisible('${v.id}',this)" title="Показывать в Сегодня"><div class="ntoggle-knob"></div></div>
+  let h=selectedIds.map(id=>{
+    const v=allVits.find(x=>x.id===id); if(!v) return '';
+    const freqLabel=getVitFreqLabel(id);
+    const times=(profile?.vitTimes?.[id])||getVitTime(id,profile);
+    const timeArr=Array.isArray(times)?times:[times];
+    const timeStr=timeArr.join(', ');
+    return `
+    <div class="swipe-row swipe-2btn" id="vsr-${id}">
+      <div class="swipe-content p-row" style="border-bottom:.5px solid var(--border)">
+        <div class="p-row-ico" style="background:${v.bg}"><i class="ph ${v.icon}" style="color:${v.color}"></i></div>
+        <div style="flex:1;min-width:0">
+          <div class="p-row-label">${v.name}</div>
+          <div style="font-size:11px;color:var(--text3);margin-top:2px">${timeStr} · ${freqLabel}</div>
+        </div>
+        <div class="ntoggle on" onclick="event.stopPropagation();toggleVitActive('${id}')"><div class="ntoggle-knob"></div></div>
+      </div>
+      <div class="swipe-act-settings" onclick="openVitSheet('${id}')">
+        <i class="ph ph-gear" style="font-size:18px;color:#fff"></i>
+        <span style="font-size:9px;font-weight:600;color:#fff">Настройки</span>
+      </div>
+    </div>
+    <div id="vit-sheet-${id}" style="display:none;background:var(--bg3);border-bottom:.5px solid var(--border);padding:12px 13px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+        <div style="font-size:13px;font-weight:600">${v.name} — настройки</div>
+        <div onclick="closeVitSheet('${id}')" style="color:var(--text3);cursor:pointer;font-size:16px;padding:2px 4px">✕</div>
+      </div>
+      <div style="font-size:11px;color:var(--text3);font-weight:600;letter-spacing:.3px;margin-bottom:7px">Периодичность</div>
+      <div id="vfs-pills-${id}" style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:10px">
+        <button class="freq-pill on" data-freq="every" onclick="setVitFreqType('${id}','every')">Каждый день</button>
+        <button class="freq-pill" data-freq="other" onclick="setVitFreqType('${id}','other')">Через день</button>
+        <button class="freq-pill" data-freq="days" onclick="setVitFreqType('${id}','days')">По дням</button>
+      </div>
+      <div id="vfs-drow-${id}" class="freq-days" style="display:none;margin-bottom:10px">
+        <button class="freq-day" data-day="1">Пн</button>
+        <button class="freq-day" data-day="2">Вт</button>
+        <button class="freq-day" data-day="3">Ср</button>
+        <button class="freq-day" data-day="4">Чт</button>
+        <button class="freq-day" data-day="5">Пт</button>
+        <button class="freq-day" data-day="6">Сб</button>
+        <button class="freq-day" data-day="0">Вс</button>
+      </div>
+      <div style="font-size:11px;color:var(--text3);font-weight:600;letter-spacing:.3px;margin-bottom:7px">Время приёма</div>
+      <div id="vfs-times-${id}"></div>
+      <div class="med-add-time" onclick="addVitSheetTime('${id}')"><i class="ph ph-plus-circle" style="font-size:14px"></i>Добавить приём</div>
+      <button onclick="saveVitSheet('${id}')" style="margin-top:10px;width:100%;padding:9px;border-radius:10px;background:var(--blue);border:none;color:#fff;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit">Сохранить</button>
     </div>`;
   }).join('');
 
-  // Unselected vitamins — collapsible
-  const unselected = allVits.filter(v=>!selectedIds.includes(v.id));
-  const addId = 'vit-add-expand';
-  h += `<div class="add-btn" onclick="toggleAddVitList()" style="border-top:.5px solid var(--border)"><i class="ph ph-plus-circle" style="font-size:19px"></i>Добавить витамин</div>`;
-  h += `<div id="${addId}" style="display:none">`;
-  h += unselected.map(v=>`<div class="p-row" style="cursor:pointer" onclick="addVitToProfile('${v.id}')">
+  const unselected=allVits.filter(v=>!selectedIds.includes(v.id));
+  h+=`<div class="add-btn" onclick="toggleAddVitList()" style="border-top:.5px solid var(--border)"><i class="ph ph-plus-circle" style="font-size:19px"></i>Добавить витамин</div>`;
+  h+=`<div id="vit-add-expand" style="display:none">`;
+  h+=unselected.map(v=>`<div class="p-row" style="cursor:pointer" onclick="addVitToProfile('${v.id}')">
     <div class="p-row-ico" style="background:${v.bg}"><i class="ph ${v.icon}" style="color:${v.color}"></i></div>
     <span class="p-row-label">${v.name}</span>
     <i class="ph ph-plus" style="color:var(--green);font-size:18px"></i>
   </div>`).join('');
-  h += '</div>';
-  h += `<div style="padding:8px 13px"><button class="reset-btn" onclick="resetVitTimes()">↺ Сбросить время по умолчанию</button></div>`;
+  h+='</div>';
+  h+=`<div style="padding:8px 13px"><button class="reset-btn" onclick="resetVitTimes()">↺ Сбросить время по умолчанию</button></div>`;
+  el.innerHTML=h;
 
-  el.innerHTML = h;
+  // Wire swipe for each vitamin row
+  el.querySelectorAll('.swipe-row.swipe-2btn').forEach(row=>{
+    init2BtnSwipe(row);
+  });
 }
 
 function toggleAddVitList(){
@@ -1378,13 +1532,8 @@ async function addVitToProfile(id){
 }
 
 async function toggleVitVisible(id, el){
-  if(!profile.vitHidden) profile.vitHidden=[];
-  const idx = profile.vitHidden.indexOf(id);
-  if(idx>=0){ profile.vitHidden.splice(idx,1); el.classList.add('on'); }
-  else { profile.vitHidden.push(id); el.classList.remove('on'); }
-  await saveProfile();
-  renderVits();
-  updateRings();
+  // Legacy — redirect to new logic
+  await toggleVitActive(id);
 }
 
 async function updateVitTime(id,val){
@@ -1807,8 +1956,53 @@ function restartOnboarding(){
   showOb();
 }
 
-// ─── SWIPE TO DELETE ───
-let _swipeActive = null; // currently open swipe row
+// ─── SWIPE ───────────────────────────────────────────────────────────────────
+let _swipeActive = null;
+
+function init2BtnSwipe(rowEl){
+  let startX=0, startY=0, dx=0, swiping=false, locked=false;
+  const W=72, THRESHOLD=44;
+
+  rowEl.addEventListener('touchstart', e=>{
+    startX=e.touches[0].clientX; startY=e.touches[0].clientY;
+    dx=0; swiping=false; locked=false;
+  },{passive:true});
+
+  rowEl.addEventListener('touchmove', e=>{
+    if(locked) return;
+    dx=e.touches[0].clientX-startX;
+    const dy=e.touches[0].clientY-startY;
+    if(!swiping&&Math.abs(dy)>Math.abs(dx)+5){locked=true;return;}
+    if(Math.abs(dx)>6) swiping=true;
+    if(!swiping) return;
+    e.preventDefault();
+    const isOpen=rowEl.classList.contains('open');
+    const base=isOpen?-W:0;
+    const offset=Math.min(0,Math.max(base+dx,-W));
+    const content=rowEl.querySelector('.swipe-content');
+    const btn=rowEl.querySelector('.swipe-act-settings');
+    if(content){content.style.transition='none';content.style.transform=`translateX(${offset}px)`;}
+    if(btn){btn.style.transition='none';btn.style.transform=`translateX(${W+offset}px)`;}
+  },{passive:false});
+
+  rowEl.addEventListener('touchend', ()=>{
+    if(locked||!swiping) return;
+    const content=rowEl.querySelector('.swipe-content');
+    const btn=rowEl.querySelector('.swipe-act-settings');
+    if(content) content.style.transition='';
+    if(btn) btn.style.transition='';
+    const isOpen=rowEl.classList.contains('open');
+    if(!isOpen&&dx<-THRESHOLD){
+      if(_swipeActive&&_swipeActive!==rowEl) _swipeActive.classList.remove('open');
+      rowEl.classList.add('open'); _swipeActive=rowEl;
+    } else if(isOpen&&dx>THRESHOLD/2){
+      rowEl.classList.remove('open');
+      if(_swipeActive===rowEl) _swipeActive=null;
+    }
+    if(content) content.style.transform='';
+    if(btn) btn.style.transform='';
+  });
+}
 
 function initSwipeDelete(rowEl, onDelete) {
   let startX = 0, startY = 0, dx = 0, swiping = false, locked = false;
