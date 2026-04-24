@@ -1,5 +1,6 @@
-import os, logging, random
+import os, logging
 from datetime import datetime, time as dtime, timezone, timedelta
+from typing import Any
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo
 from telegram.ext import Application, CommandHandler, MessageHandler, ContextTypes, filters
 from server import start_server, db_get, profile_update_queue
@@ -71,6 +72,7 @@ MEAL_MESSAGES = {
         ("🌙 Финальный приём пищи!", "Не бойся жиров на ужин (авокадо, орехи, оливковое масло) — они нужны для синтеза гормонов и восстановления клеток 🔬\n\n✨ Приятного аппетита!"),
     ],
 }
+MEAL_SEEDS = {meal_id: idx for idx, meal_id in enumerate(MEAL_MESSAGES)}
 
 VIT_FACTS = {
     "omega":     "🐟 Омега-3 снижает воспаление, улучшает память и поддерживает сердце",
@@ -91,7 +93,7 @@ _chat: dict[str, int] = {}
 
 
 # ── Build reminders ───────────────────────────────────────────────────────────
-def _pick(pool: list, seed: int) -> any:
+def _pick(pool: list, seed: int) -> Any:
     """Deterministically pick from pool by day-of-year so it varies daily."""
     day = datetime.now().timetuple().tm_yday
     return pool[(day + seed) % len(pool)]
@@ -181,7 +183,7 @@ def build_reminders(profile: dict) -> list[dict]:
             name = meal.get("name", "")
             pool = MEAL_MESSAGES.get(mid)
             if pool:
-                seed = list(MEAL_MESSAGES.keys()).index(mid) if mid in MEAL_MESSAGES else 0
+                seed = MEAL_SEEDS.get(mid, 0)
                 title, tip = _pick(pool, seed)
                 parts.append(f"{title}\n\n{tip}")
             else:
