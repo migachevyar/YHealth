@@ -649,7 +649,7 @@ async function saveProfile() {
 async function saveWeights(){ await CS.set('weights', weights); }
 
 // ─── MEAL SCHEDULE HELPERS ───
-function timeMins(str){ const [h,m]=(str||'08:00').split(':').map(Number); return h*60+m; }
+function timeMins(str){ if(Array.isArray(str)) str=str[0]; const [h,m]=(str||'08:00').split(':').map(Number); return h*60+m; }
 function minsTime(t){ const h=Math.floor(t/60)%24,m=t%60; return String(h).padStart(2,'0')+':'+String(m).padStart(2,'0'); }
 
 function buildDefaultSchedule(breakfastTime){
@@ -926,13 +926,13 @@ function renderBottles(){
   updateRings();
 }
 
-async function toggleBot(i){
+function toggleBot(i){
   const bs=0.5, thr=(i+1)*bs, cur=dayState.water||0;
   dayState.water = Math.abs(cur-thr)<0.01?i*bs:thr;
   if(dayState.water<0) dayState.water=0;
-  await saveDayState();
   renderBottles();
-  saveProfile();
+  updateRings();
+  saveDayState(); // fire-and-forget
 }
 
 // ─── MEALS ───
@@ -960,7 +960,7 @@ function renderMeals(){
   }).join('');
 }
 
-async function toggleMeal(id){
+function toggleMeal(id){
   if(!dayState.meals) dayState.meals={};
   const m=getMealSchedule().find(x=>x.id===id);
   const was=!!dayState.meals[id];
@@ -969,12 +969,11 @@ async function toggleMeal(id){
     dayState.water=(dayState.water||0)+(was?-m.waterAmount:m.waterAmount);
     if(dayState.water<0) dayState.water=0;
     renderBottles();
-    saveProfile();
   }
-  await saveDayState();
   document.getElementById('mc-'+id)?.classList.toggle('done',!!dayState.meals[id]);
   document.getElementById('mch-'+id)?.classList.toggle('on',!!dayState.meals[id]);
   updateRings();
+  saveDayState(); // fire-and-forget
 }
 
 function toggleMealDetail(id){ document.getElementById('md-'+id)?.classList.toggle('open'); }
