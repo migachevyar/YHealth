@@ -190,15 +190,29 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Inter'
 /* Vitamin swipe */
 .swipe-row{position:relative;overflow:hidden}
 .swipe-content{transition:transform .25s cubic-bezier(.4,0,.2,1);will-change:transform;background:var(--card)}
+/* Vit swipe: settings only 72px */
 .swipe-2btn.open .swipe-content{transform:translateX(-72px)}
 .swipe-2btn.open .swipe-act-settings{transform:translateX(0)}
-.swipe-act-settings{position:absolute;right:0;top:0;bottom:0;width:72px;background:var(--blue);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;cursor:pointer;transform:translateX(72px);transition:transform .25s cubic-bezier(.4,0,.2,1)}
+.swipe-act-settings{position:absolute;top:0;bottom:0;width:72px;background:var(--blue);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;cursor:pointer;transition:transform .25s cubic-bezier(.4,0,.2,1)}
+.swipe-act-settings{right:0;transform:translateX(72px)}
+/* Med swipe: settings+delete 144px */
+.swipe-row.med-swipe.open .swipe-content{transform:translateX(-144px)}
+.swipe-row.med-swipe.open .swipe-act-settings{transform:translateX(0)}
+.swipe-row.med-swipe.open .swipe-act-delete{transform:translateX(0)}
+.swipe-row.med-swipe .swipe-act-settings{right:72px;transform:translateX(144px)}
+.swipe-act-delete{position:absolute;right:0;top:0;bottom:0;width:72px;background:var(--red);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;cursor:pointer;transform:translateX(144px);transition:transform .25s cubic-bezier(.4,0,.2,1)}
+.swipe-act-settings i,.swipe-act-delete i{font-size:18px;color:#fff}
+.swipe-act-settings span,.swipe-act-delete span{font-size:9px;font-weight:600;color:#fff}
 /* Freq pills & days */
 .freq-pill{padding:6px 12px;border-radius:20px;border:.5px solid var(--border);background:var(--bg3);font-size:12px;color:var(--text2);cursor:pointer;font-family:inherit;font-weight:500;transition:all .18s}
 .freq-pill.on{background:rgba(10,132,255,0.15);border-color:var(--blue);color:var(--blue)}
 .freq-days{display:flex;gap:5px;flex-wrap:wrap}
 .freq-day{width:34px;height:34px;border-radius:50%;border:.5px solid var(--border);background:var(--bg3);font-size:10px;font-weight:600;color:var(--text3);cursor:pointer;display:flex;align-items:center;justify-content:center;font-family:inherit;transition:all .18s;flex-shrink:0}
 .freq-day.on{background:rgba(10,132,255,0.18);border-color:var(--blue);color:var(--blue)}
+/* Vit toggle countdown */
+.ntoggle-wrap{position:relative;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0}
+.vit-countdown{position:absolute;inset:-5px;pointer-events:none;width:calc(100% + 10px);height:calc(100% + 10px)}
+.vit-countdown circle{fill:none;stroke:var(--orange);stroke-width:2.5;stroke-linecap:round;transform:rotate(-90deg);transform-origin:50% 50%}
 /* Edit profile modal */
 .ep-goal{display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--bg3);border-radius:11px;cursor:pointer;border:1.5px solid transparent;margin-bottom:6px;transition:all .18s}
 .ep-goal.active{border-color:rgba(47,209,88,.4);background:rgba(47,209,88,.07)}
@@ -354,8 +368,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Inter'
         <div class="sec">Расписание питания</div>
         <div class="p-section" id="meal-schedule-list"></div>
 
-        <div class="sec">Витамины</div>
-        <div class="p-section" id="vit-schedule-list"></div>
+        <div class="sec">Витамины <span style="font-size:12px;font-weight:400;color:var(--text3)">← свайп для настройки</span></div>
 
         <div class="sec">Лекарства</div>
         <div class="p-section" id="meds-list">
@@ -874,8 +887,18 @@ function updateRings(){
   const mDone = sched.filter(m=>dayState.meals?.[m.id]).length;
   const mTotal = sched.length;
   const w = dayState.water||0;
-  const vDone = vits.filter(v=>dayState.vitamins?.[v.id]).length;
-  const vTotal = vits.length;
+
+  // count vitamin entries (each vit × times)
+  let vTotal=0, vDone=0;
+  vits.forEach(v=>{
+    const times=profile?.vitTimes?.[v.id]||getVitTime(v.id,profile);
+    const timeArr=Array.isArray(times)?times:[times];
+    timeArr.forEach((_,ti)=>{
+      const key=`${v.id}_${ti}`;
+      vTotal++;
+      if(dayState.vitamins?.[key]) vDone++;
+    });
+  });
 
   const fp = mTotal?Math.round(mDone/mTotal*100):0;
   const wp = Math.round(Math.min(w/wGoal,1)*100);
@@ -974,40 +997,53 @@ function isVitActiveToday(id){
   return true;
 }
 
+function getFreqLabel(id){
+  const s=profile?.vitFreq?.[id];
+  if(!s||s.type==='every') return 'ежедневно';
+  if(s.type==='other') return 'через день';
+  if(s.type==='days'&&s.days?.length){
+    const n=['вс','пн','вт','ср','чт','пт','сб'];
+    return s.days.map(d=>n[d]).join(', ');
+  }
+  return 'ежедневно';
+}
+
 function renderVits(){
   const el=document.getElementById('vits-list'); if(!el) return;
   const vits=getActiveVits();
   if(!vits.length){ el.innerHTML='<div style="font-size:14px;color:var(--text3);padding:8px 0">Витамины не выбраны. Настрой в профиле.</div>'; return; }
-  el.innerHTML=vits.map(v=>{
-    const done=!!(dayState.vitamins?.[v.id]);
-    const t=getVitTime(v.id,profile);
-    const dose=getVitDose(v.id,profile);
-    return `<div class="vit-card ${done?'done':''}" id="vc-${v.id}">
-      <div class="vit-hdr" onclick="toggleVitDetail('${v.id}')">
+  // expand each vitamin into per-time entries, then sort by time
+  const entries=[];
+  vits.forEach(v=>{
+    const times=profile?.vitTimes?.[v.id]||getVitTime(v.id,profile);
+    const timeArr=Array.isArray(times)?times:[times];
+    timeArr.forEach((t,ti)=>entries.push({v,t,ti,key:`${v.id}_${ti}`}));
+  });
+  entries.sort((a,b)=>timeMins(a.t)-timeMins(b.t));
+  const dose=v=>getVitDose(v.id,profile);
+  const freqLbl=v=>getFreqLabel(v.id);
+  el.innerHTML=entries.map(({v,t,ti,key})=>{
+    const done=!!(dayState.vitamins?.[key]);
+    return `<div class="vit-card ${done?'done':''}" id="vc-${key}">
+      <div class="vit-hdr">
         <div class="vit-dot" style="background:${v.bg}"><i class="ph ${v.icon}" style="color:${v.color}"></i></div>
         <div style="flex:1;min-width:0">
           <div class="vit-name">${v.name}</div>
-          <div class="vit-meta"><span class="vit-time-badge" style="color:${v.color}">${t}</span><span>${v.timingLabel}</span></div>
+          <div class="vit-meta"><span class="vit-time-badge" style="color:${v.color}">${t}</span><span>${freqLbl(v)}</span></div>
         </div>
-        <div class="vit-check ${done?'on':''}" id="vch-${v.id}" onclick="event.stopPropagation();toggleVit('${v.id}')"><i class="ph ph-check"></i></div>
-      </div>
-      <div class="vit-detail" id="vd-${v.id}">
-        <div class="vit-chips"><div class="vit-chip"><div class="chip-lbl">Доза</div><div class="chip-val">${dose}</div></div><div class="vit-chip"><div class="chip-lbl">Время</div><div class="chip-val" style="color:${v.color}">${t}</div></div></div>
-        <div class="vit-desc">${v.desc}</div>
-        ${v.warn?`<div class="vit-warn"><i class="ph ph-warning" style="flex-shrink:0;margin-top:1px"></i>${v.warn}</div>`:''}
+        <div class="vit-check ${done?'on':''}" id="vch-${key}" onclick="event.stopPropagation();toggleVit('${key}')"><i class="ph ph-check"></i></div>
       </div>
     </div>`;
   }).join('');
 }
 
-async function toggleVit(id){
+async function toggleVit(key){
   if(!dayState.vitamins) dayState.vitamins={};
-  dayState.vitamins[id]=!dayState.vitamins[id];
-  await saveDayState();
-  document.getElementById('vc-'+id)?.classList.toggle('done',!!dayState.vitamins[id]);
-  document.getElementById('vch-'+id)?.classList.toggle('on',!!dayState.vitamins[id]);
+  dayState.vitamins[key]=!dayState.vitamins[key];
+  saveDayState();
+  document.getElementById('vc-'+key)?.classList.toggle('done',!!dayState.vitamins[key]);
+  document.getElementById('vch-'+key)?.classList.toggle('on',!!dayState.vitamins[key]);
   updateRings();
-  saveProfile();
 }
 
 function toggleVitDetail(id){ document.getElementById('vd-'+id)?.classList.toggle('open'); }
@@ -1413,15 +1449,46 @@ async function saveVitSheet(id){
 }
 
 // Toggle = add/remove from profile.vitamins
+// ── pending removal timers {id: timerId}
+const _vitRemoveTimers = {};
+
 async function toggleVitActive(id){
   if(!profile.vitamins) profile.vitamins=[];
   const idx=profile.vitamins.indexOf(id);
-  if(idx>=0){ profile.vitamins.splice(idx,1); }
-  else { profile.vitamins.push(id); }
-  await saveProfile();
-  renderVitScheduleList();
-  renderVits();
-  updateRings();
+  if(idx>=0){
+    if(_vitRemoveTimers[id]){ return; } // already counting down
+    const tog=document.getElementById('vt-'+id);
+    if(tog) tog.classList.remove('on');
+    // show countdown ring
+    const wrap=document.getElementById('vtw-'+id);
+    if(wrap && !document.getElementById('vcd-'+id)){
+      const r=11, circ=2*Math.PI*r;
+      wrap.insertAdjacentHTML('beforeend',
+        `<svg id="vcd-${id}" style="position:absolute;inset:-5px;width:calc(100% + 10px);height:calc(100% + 10px);pointer-events:none;overflow:visible" viewBox="0 0 50 33"><circle cx="25" cy="16.5" r="${r}" fill="none" stroke="var(--orange)" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="${circ.toFixed(1)}" stroke-dashoffset="0" transform="rotate(-90 25 16.5)"/></svg>`);
+      requestAnimationFrame(()=>requestAnimationFrame(()=>{
+        const c=document.querySelector(`#vcd-${id} circle`);
+        if(c){ c.style.transition=`stroke-dashoffset 3s linear`; c.style.strokeDashoffset=circ.toFixed(1); }
+      }));
+    }
+    _vitRemoveTimers[id]=setTimeout(async()=>{
+      delete _vitRemoveTimers[id];
+      const i2=profile.vitamins.indexOf(id);
+      if(i2>=0) profile.vitamins.splice(i2,1);
+      await saveProfile();
+      renderVitScheduleList(); renderVits(); updateRings();
+    },3000);
+  } else {
+    if(_vitRemoveTimers[id]){
+      clearTimeout(_vitRemoveTimers[id]); delete _vitRemoveTimers[id];
+      const tog=document.getElementById('vt-'+id);
+      if(tog) tog.classList.add('on');
+      document.getElementById('vcd-'+id)?.remove();
+      return;
+    }
+    profile.vitamins.push(id);
+    await saveProfile();
+    renderVitScheduleList(); renderVits(); updateRings();
+  }
 }
 
 function renderVitScheduleList(){
@@ -1429,21 +1496,31 @@ function renderVitScheduleList(){
   const allVits=VITS_ALL;
   const selectedIds=profile?.vitamins||[];
 
-  let h=selectedIds.map(id=>{
+  // sort by first time
+  const sorted=[...selectedIds].sort((a,b)=>{
+    const ta=profile?.vitTimes?.[a]||getVitTime(a,profile);
+    const tb=profile?.vitTimes?.[b]||getVitTime(b,profile);
+    return timeMins(Array.isArray(ta)?ta[0]:ta)-timeMins(Array.isArray(tb)?tb[0]:tb);
+  });
+
+  let h=sorted.map(id=>{
     const v=allVits.find(x=>x.id===id); if(!v) return '';
     const freqLabel=getVitFreqLabel(id);
-    const times=(profile?.vitTimes?.[id])||getVitTime(id,profile);
+    const times=profile?.vitTimes?.[id]||getVitTime(id,profile);
     const timeArr=Array.isArray(times)?times:[times];
     const timeStr=timeArr.join(', ');
+    const pending=!!_vitRemoveTimers[id];
     return `
     <div class="swipe-row swipe-2btn" id="vsr-${id}">
       <div class="swipe-content p-row" style="border-bottom:.5px solid var(--border)">
         <div class="p-row-ico" style="background:${v.bg}"><i class="ph ${v.icon}" style="color:${v.color}"></i></div>
         <div style="flex:1;min-width:0">
-          <div class="p-row-label">${v.name}</div>
-          <div style="font-size:11px;color:var(--text3);margin-top:2px">${timeStr} · ${freqLabel}</div>
+          <div class="p-row-label" style="font-size:14px">${v.name}</div>
+          <div style="font-size:12px;color:var(--text3);margin-top:2px">${timeStr} · ${freqLabel}</div>
         </div>
-        <div class="ntoggle on" onclick="event.stopPropagation();toggleVitActive('${id}')"><div class="ntoggle-knob"></div></div>
+        <div class="ntoggle-wrap" id="vtw-${id}" style="position:relative;display:inline-flex;flex-shrink:0" onclick="event.stopPropagation();toggleVitActive('${id}')">
+          <div class="ntoggle ${pending?'':' on'}" id="vt-${id}"><div class="ntoggle-knob"></div></div>
+        </div>
       </div>
       <div class="swipe-act-settings" onclick="openVitSheet('${id}')">
         <i class="ph ph-gear" style="font-size:18px;color:#fff"></i>
@@ -1457,17 +1534,14 @@ function renderVitScheduleList(){
       </div>
       <div style="font-size:11px;color:var(--text3);font-weight:600;letter-spacing:.3px;margin-bottom:7px">Периодичность</div>
       <div id="vfs-pills-${id}" style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:10px">
-        <button class="freq-pill on" data-freq="every" onclick="setVitFreqType('${id}','every')">Каждый день</button>
-        <button class="freq-pill" data-freq="other" onclick="setVitFreqType('${id}','other')">Через день</button>
-        <button class="freq-pill" data-freq="days" onclick="setVitFreqType('${id}','days')">По дням</button>
+        <button class="freq-pill on" data-freq="every">Каждый день</button>
+        <button class="freq-pill" data-freq="other">Через день</button>
+        <button class="freq-pill" data-freq="days">По дням</button>
       </div>
       <div id="vfs-drow-${id}" class="freq-days" style="display:none;margin-bottom:10px">
-        <button class="freq-day" data-day="1">Пн</button>
-        <button class="freq-day" data-day="2">Вт</button>
-        <button class="freq-day" data-day="3">Ср</button>
-        <button class="freq-day" data-day="4">Чт</button>
-        <button class="freq-day" data-day="5">Пт</button>
-        <button class="freq-day" data-day="6">Сб</button>
+        <button class="freq-day" data-day="1">Пн</button><button class="freq-day" data-day="2">Вт</button>
+        <button class="freq-day" data-day="3">Ср</button><button class="freq-day" data-day="4">Чт</button>
+        <button class="freq-day" data-day="5">Пт</button><button class="freq-day" data-day="6">Сб</button>
         <button class="freq-day" data-day="0">Вс</button>
       </div>
       <div style="font-size:11px;color:var(--text3);font-weight:600;letter-spacing:.3px;margin-bottom:7px">Время приёма</div>
@@ -1489,10 +1563,21 @@ function renderVitScheduleList(){
   h+=`<div style="padding:8px 13px"><button class="reset-btn" onclick="resetVitTimes()">↺ Сбросить время по умолчанию</button></div>`;
   el.innerHTML=h;
 
-  // Wire swipe for each vitamin row
-  el.querySelectorAll('.swipe-row.swipe-2btn').forEach(row=>{
-    init2BtnSwipe(row);
+  // event delegation for freq pills and days (fixes click bug)
+  el.querySelectorAll('[id^="vfs-pills-"]').forEach(box=>{
+    const bid=box.id.replace('vfs-pills-','');
+    box.addEventListener('click',e=>{
+      const p=e.target.closest('.freq-pill'); if(!p) return;
+      box.querySelectorAll('.freq-pill').forEach(x=>x.classList.remove('on')); p.classList.add('on');
+      const dr=document.getElementById('vfs-drow-'+bid);
+      if(dr) dr.style.display=p.dataset.freq==='days'?'flex':'none';
+    });
   });
+  el.querySelectorAll('[id^="vfs-drow-"]').forEach(dr=>{
+    dr.addEventListener('click',e=>{ const d=e.target.closest('.freq-day'); if(d) d.classList.toggle('on'); });
+  });
+
+  el.querySelectorAll('.swipe-row.swipe-2btn').forEach(row=>init2BtnSwipe(row));
 }
 
 function toggleAddVitList(){
@@ -1533,41 +1618,218 @@ async function resetVitTimes(){
 function renderMedsList(){
   const el=document.getElementById('meds-list'); if(!el) return;
   const meds=profile?.meds||[];
-  const hiddenMeds=profile?.medsHidden||[];
   const MCOLS=['var(--red)','var(--orange)','var(--blue)','var(--green)','var(--purple)','var(--teal)'];
   const MBGS=['var(--red3)','var(--orange3)','var(--blue3)','var(--green3)','var(--purple3)','var(--teal3)'];
   let h='';
   meds.forEach((med,i)=>{
     const col=MCOLS[i%MCOLS.length], bg=MBGS[i%MBGS.length];
-    const hidden=hiddenMeds.includes(i);
-    const times=med.times||['08:00'];
-    const timesHtml=times.map((t,j)=>`
-      <div class="med-time-row">
-        <input type="time" value="${t}" class="p-time-input" style="font-size:13px" onchange="updateMedTime(${i},${j},this.value)"/>
-        ${times.length>1?`<button class="med-time-minus" onclick="deleteMedTime(${i},${j})">−</button>`:''}
-      </div>`).join('');
-    h+=`<div class="med-block">
-      <div class="swipe-row" data-med-idx="${i}">
-        <div class="swipe-content med-header">
-          <div class="p-row-ico" style="background:${bg}"><i class="ph ph-pill" style="color:${col}"></i></div>
-          <div style="flex:1"><div class="p-row-label">${med.name}</div><div style="font-size:11px;color:var(--text3)">${med.dose}</div></div>
-          <div class="ntoggle ${hidden?'':'on'}" onclick="toggleMedVisible(${i},this)"><div class="ntoggle-knob"></div></div>
+    const times=med.times||[med.time||'08:00'];
+    const freq=profile?.medFreq?.[i]||{type:'every'};
+    const freqLabel=_medFreqLabel(freq);
+    h+=`
+    <div class="swipe-row swipe-2btn med-swipe" id="msr-${i}">
+      <div class="swipe-content p-row" style="border-bottom:.5px solid var(--border)">
+        <div class="p-row-ico" style="background:${bg}"><i class="ph ph-pill" style="color:${col}"></i></div>
+        <div style="flex:1;min-width:0">
+          <div class="p-row-label" style="font-size:14px">${med.name}</div>
+          <div style="font-size:12px;color:var(--text3);margin-top:2px">${times.join(', ')}${med.dose?' · '+med.dose:''} · ${freqLabel}</div>
         </div>
-        <div class="swipe-delete-btn"><i class="ph ph-trash"></i></div>
+        <div class="ntoggle on"><div class="ntoggle-knob"></div></div>
       </div>
-      <div class="med-times-body">
-        ${timesHtml}
-        <div class="med-add-time" onclick="addMedTime(${i})"><i class="ph ph-plus-circle" style="font-size:14px"></i>Добавить приём</div>
+      <div class="swipe-act-settings" onclick="openMedSheet(${i})">
+        <i class="ph ph-gear" style="font-size:18px;color:#fff"></i>
+        <span style="font-size:9px;font-weight:600;color:#fff">Настройки</span>
       </div>
+      <div class="swipe-act-delete" onclick="confirmDeleteMed(${i})">
+        <i class="ph ph-trash" style="font-size:18px;color:#fff"></i>
+        <span style="font-size:9px;font-weight:600;color:#fff">Удалить</span>
+      </div>
+    </div>
+    <div id="med-sheet-${i}" style="display:none;background:var(--bg3);border-bottom:.5px solid var(--border);padding:12px 13px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+        <div style="font-size:13px;font-weight:600">${med.name} — настройки</div>
+        <div onclick="closeMedSheet(${i})" style="color:var(--text3);cursor:pointer;font-size:16px;padding:2px 4px">✕</div>
+      </div>
+      <div style="font-size:11px;color:var(--text3);font-weight:600;letter-spacing:.3px;margin-bottom:7px">Периодичность</div>
+      <div id="mfs-pills-${i}" style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:10px">
+        <button class="freq-pill ${freq.type==='every'?'on':''}" data-freq="every">Каждый день</button>
+        <button class="freq-pill ${freq.type==='other'?'on':''}" data-freq="other">Через день</button>
+        <button class="freq-pill ${freq.type==='days'?'on':''}" data-freq="days">По дням</button>
+      </div>
+      <div id="mfs-drow-${i}" class="freq-days" style="${freq.type==='days'?'':'display:none;'}margin-bottom:10px">
+        <button class="freq-day ${(freq.days||[]).includes(1)?'on':''}" data-day="1">Пн</button>
+        <button class="freq-day ${(freq.days||[]).includes(2)?'on':''}" data-day="2">Вт</button>
+        <button class="freq-day ${(freq.days||[]).includes(3)?'on':''}" data-day="3">Ср</button>
+        <button class="freq-day ${(freq.days||[]).includes(4)?'on':''}" data-day="4">Чт</button>
+        <button class="freq-day ${(freq.days||[]).includes(5)?'on':''}" data-day="5">Пт</button>
+        <button class="freq-day ${(freq.days||[]).includes(6)?'on':''}" data-day="6">Сб</button>
+        <button class="freq-day ${(freq.days||[]).includes(0)?'on':''}" data-day="0">Вс</button>
+      </div>
+      <div style="font-size:11px;color:var(--text3);font-weight:600;letter-spacing:.3px;margin-bottom:7px">Время приёма</div>
+      <div id="mfs-times-${i}">${times.map((t,j)=>`
+        <div class="med-time-row" style="margin-bottom:6px">
+          <input type="time" value="${t}" class="p-time-input" style="font-size:14px;font-weight:700;color:var(--blue);flex:1" onchange="updateMedTime(${i},${j},this.value)"/>
+          ${times.length>1?`<button class="med-time-minus" onclick="removeMedSheetTime(${i},${j})">−</button>`:''}
+        </div>`).join('')}
+      </div>
+      <div class="med-add-time" onclick="addMedSheetTime(${i})"><i class="ph ph-plus-circle" style="font-size:14px"></i>Добавить приём</div>
+      <button onclick="saveMedSheet(${i})" style="margin-top:10px;width:100%;padding:9px;border-radius:10px;background:var(--blue);border:none;color:#fff;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit">Сохранить</button>
     </div>`;
   });
   h+=`<div class="add-btn" onclick="openMedModal()"><i class="ph ph-plus-circle" style="font-size:20px"></i>Добавить лекарство</div>`;
   el.innerHTML=h;
-  // Wire swipe-to-delete for meds
-  el.querySelectorAll('.swipe-row[data-med-idx]').forEach(row=>{
-    const i=parseInt(row.dataset.medIdx);
-    initSwipeDelete(row, ()=>deleteMed(i));
+
+  // event delegation for freq pills and days in med sheets
+  el.querySelectorAll('[id^="mfs-pills-"]').forEach(box=>{
+    const bi=box.id.replace('mfs-pills-','');
+    box.addEventListener('click',e=>{
+      const p=e.target.closest('.freq-pill'); if(!p) return;
+      box.querySelectorAll('.freq-pill').forEach(x=>x.classList.remove('on')); p.classList.add('on');
+      const dr=document.getElementById('mfs-drow-'+bi);
+      if(dr) dr.style.display=p.dataset.freq==='days'?'flex':'none';
+    });
   });
+  el.querySelectorAll('[id^="mfs-drow-"]').forEach(dr=>{
+    dr.addEventListener('click',e=>{ const d=e.target.closest('.freq-day'); if(d) d.classList.toggle('on'); });
+  });
+
+  // wire 2-btn swipe (settings + delete)
+  el.querySelectorAll('.swipe-row.swipe-2btn[id^="msr-"]').forEach(row=>init2BtnSwipe2(row));
+}
+
+function _medFreqLabel(freq){
+  if(!freq||freq.type==='every') return 'ежедневно';
+  if(freq.type==='other') return 'через день';
+  if(freq.type==='days'&&freq.days?.length){
+    const n=['вс','пн','вт','ср','чт','пт','сб'];
+    return freq.days.map(d=>n[d]).join(', ');
+  }
+  return 'ежедневно';
+}
+
+function isMedActiveToday(i){
+  const freq=profile?.medFreq?.[i]||{type:'every'};
+  if(freq.type==='every') return true;
+  if(freq.type==='other'){
+    const start=new Date(new Date().getFullYear(),0,1);
+    return Math.floor((Date.now()-start)/86400000)%2===0;
+  }
+  if(freq.type==='days'&&freq.days?.length) return freq.days.includes(new Date().getDay());
+  return true;
+}
+
+function openMedSheet(i){
+  if(_swipeActive){_swipeActive.classList.remove('open');_swipeActive=null;}
+  document.getElementById('med-sheet-'+i).style.display='block';
+  document.getElementById('med-sheet-'+i).scrollIntoView({behavior:'smooth',block:'nearest'});
+}
+function closeMedSheet(i){ document.getElementById('med-sheet-'+i).style.display='none'; }
+
+function addMedSheetTime(i){
+  const med=profile.meds[i]; if(!med) return;
+  if(!med.times) med.times=[med.time||'08:00'];
+  med.times.push('20:00');
+  renderMedsList();
+  openMedSheet(i);
+}
+function removeMedSheetTime(i,j){
+  const med=profile.meds[i]; if(!med||!med.times||med.times.length<=1) return;
+  med.times.splice(j,1);
+  renderMedsList();
+  openMedSheet(i);
+}
+
+async function saveMedSheet(i){
+  const type=document.getElementById('mfs-pills-'+i).querySelector('.freq-pill.on')?.dataset.freq||'every';
+  const days=[...document.getElementById('mfs-drow-'+i).querySelectorAll('.freq-day.on')].map(b=>parseInt(b.dataset.day));
+  if(!profile.medFreq) profile.medFreq={};
+  profile.medFreq[i]={type,days};
+  await saveProfile();
+  closeMedSheet(i);
+  renderMedsList();
+  renderMedsToday();
+}
+
+async function confirmDeleteMed(i){
+  if(_swipeActive){_swipeActive.classList.remove('open');_swipeActive=null;}
+  const row=document.getElementById('msr-'+i);
+  if(row){ row.classList.add('deleting'); }
+  setTimeout(async()=>{ await deleteMed(i); },300);
+}
+
+// init2BtnSwipe2 — same as init2BtnSwipe but 144px for 2 buttons
+function init2BtnSwipe2(rowEl){
+  let startX=0,startY=0,dx=0,swiping=false,locked=false;
+  const W=144,THRESHOLD=60;
+  rowEl.addEventListener('touchstart',e=>{startX=e.touches[0].clientX;startY=e.touches[0].clientY;dx=0;swiping=false;locked=false;},{passive:true});
+  rowEl.addEventListener('touchmove',e=>{
+    if(locked) return;
+    dx=e.touches[0].clientX-startX;
+    const dy=e.touches[0].clientY-startY;
+    if(!swiping&&Math.abs(dy)>Math.abs(dx)+5){locked=true;return;}
+    if(Math.abs(dx)>6) swiping=true;
+    if(!swiping) return;
+    e.preventDefault();
+    const isOpen=rowEl.classList.contains('open');
+    const base=isOpen?-W:0;
+    const offset=Math.min(0,Math.max(base+dx,-W));
+    const c=rowEl.querySelector('.swipe-content');
+    const b1=rowEl.querySelector('.swipe-act-settings');
+    const b2=rowEl.querySelector('.swipe-act-delete');
+    [c,b1,b2].forEach(el=>{if(el){el.style.transition='none';el.style.transform=el===c?`translateX(${offset}px)`:`translateX(${W+offset}px)`;}});
+  },{passive:false});
+  rowEl.addEventListener('touchend',()=>{
+    if(locked||!swiping) return;
+    const c=rowEl.querySelector('.swipe-content');
+    const b1=rowEl.querySelector('.swipe-act-settings');
+    const b2=rowEl.querySelector('.swipe-act-delete');
+    [c,b1,b2].forEach(el=>{if(el){el.style.transition='';el.style.transform='';}});
+    const isOpen=rowEl.classList.contains('open');
+    if(!isOpen&&dx<-THRESHOLD){
+      if(_swipeActive&&_swipeActive!==rowEl)_swipeActive.classList.remove('open');
+      rowEl.classList.add('open');_swipeActive=rowEl;
+    } else if(isOpen&&dx>THRESHOLD/2){
+      rowEl.classList.remove('open');if(_swipeActive===rowEl)_swipeActive=null;
+    }
+  });
+}
+
+function renderMedsToday(){
+  const meds=profile?.meds||[];
+  const sec=document.getElementById('meds-today-section');
+  const el=document.getElementById('meds-today-list');
+  if(!el||!sec) return;
+  const activeMeds=meds.map((m,i)=>({m,i})).filter(({i})=>isMedActiveToday(i));
+  if(!activeMeds.length){sec.style.display='none';return;}
+  sec.style.display='block';
+  const MCOLS=['var(--red)','var(--orange)','var(--blue)','var(--green)','var(--purple)','var(--teal)'];
+  const MBGS=['var(--red3)','var(--orange3)','var(--blue3)','var(--green3)','var(--purple3)','var(--teal3)'];
+  // expand each med × times
+  const entries=[];
+  activeMeds.forEach(({m,i})=>{
+    const times=m.times||[m.time||'08:00'];
+    times.forEach((t,j)=>entries.push({m,i,t,j,key:`${i}_${j}`}));
+  });
+  entries.sort((a,b)=>timeMins(a.t)-timeMins(b.t));
+  el.innerHTML=entries.map(({m,i,t,key})=>{
+    const done=!!(dayState.meds?.[key]);
+    const col=MCOLS[i%MCOLS.length],bg=MBGS[i%MBGS.length];
+    return `<div class="meal-card ${done?'done':''}">
+      <div class="meal-hdr">
+        <div class="meal-ico" style="background:${bg}"><i class="ph ph-pill" style="color:${col}"></i></div>
+        <div style="flex:1"><div class="meal-name">${m.name}</div><div class="meal-time-lbl">${t}${m.dose?' · '+m.dose:''}</div></div>
+        <div class="meal-check ${done?'on':''}" onclick="event.stopPropagation();toggleMed('${key}')"><i class="ph ph-check"></i></div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+async function toggleMed(key){
+  if(!dayState.meds) dayState.meds={};
+  dayState.meds[key]=!dayState.meds[key];
+  saveDayState();
+  renderMedsToday();
+  updateRings();
 }
 
 function _renderMedTimesModal(){
@@ -2051,36 +2313,6 @@ document.addEventListener('touchstart', e => {
 }, { passive: true });
 
 // ─── MAIN APP RENDER ───
-function renderMedsToday(){
-  const meds = profile?.meds||[];
-  const sec = document.getElementById('meds-today-section');
-  const el = document.getElementById('meds-today-list');
-  if(!el||!sec) return;
-  if(!meds.length){ sec.style.display='none'; return; }
-  sec.style.display='block';
-  const hiddenMeds=profile?.medsHidden||[];
-  const MCOLS2=['var(--red)','var(--orange)','var(--blue)','var(--green)','var(--purple)','var(--teal)'];
-  const MBGS2=['var(--red3)','var(--orange3)','var(--blue3)','var(--green3)','var(--purple3)','var(--teal3)'];
-  el.innerHTML = meds.filter((_,i)=>!hiddenMeds.includes(i)).map((med,i)=>{
-    const done = !!(dayState.meds?.[i]);
-    const col=MCOLS2[i%MCOLS2.length], bg=MBGS2[i%MBGS2.length];
-    return `<div class="meal-card ${done?'done':''}">
-      <div class="meal-hdr" onclick="">
-        <div class="meal-ico" style="background:${bg}"><i class="ph ph-pill" style="color:${col}"></i></div>
-        <div style="flex:1"><div class="meal-name">${med.name}</div><div class="meal-time-lbl">${(med.times||[med.time||'']).join(', ')}${med.dose?' · '+med.dose:''}</div></div>
-        <div class="meal-check ${done?'on':''}" onclick="event.stopPropagation();toggleMed(${i})"><i class="ph ph-check"></i></div>
-      </div>
-    </div>`;
-  }).join('');
-}
-
-async function toggleMed(i){
-  if(!dayState.meds) dayState.meds={};
-  dayState.meds[i] = !dayState.meds[i];
-  await saveDayState();
-  renderMedsToday();
-  saveProfile();
-}
 
 function loadApp(){
   renderDate();
