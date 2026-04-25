@@ -1,7 +1,5 @@
-import os, logging
+import os, logging, random
 from datetime import datetime, time as dtime, timezone, timedelta
-from typing import Any
-from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo
 from telegram.ext import Application, CommandHandler, MessageHandler, ContextTypes, filters
 from server import start_server, db_get, profile_update_queue
@@ -16,7 +14,6 @@ TOKEN        = os.environ.get("BOT_TOKEN", "")
 WEBAPP_URL   = os.environ.get("WEBAPP_URL", "")
 FEEDBACK_ID  = os.environ.get("FEEDBACK_CHAT_ID", "")
 TZ_OFFSET    = int(os.environ.get("TZ_OFFSET", "3"))   # hours ahead of UTC
-WEBAPP_VER   = os.environ.get("WEBAPP_VERSION", datetime.now().strftime("%Y%m%d%H%M"))
 
 VIT_NAMES = {
     "omega":"Омега-3", "vitd":"Витамин D3+K2", "vitc":"Витамин C",
@@ -74,7 +71,6 @@ MEAL_MESSAGES = {
         ("🌙 Финальный приём пищи!", "Не бойся жиров на ужин (авокадо, орехи, оливковое масло) — они нужны для синтеза гормонов и восстановления клеток 🔬\n\n✨ Приятного аппетита!"),
     ],
 }
-MEAL_SEEDS = {meal_id: idx for idx, meal_id in enumerate(MEAL_MESSAGES)}
 
 VIT_FACTS = {
     "omega":     "🐟 Омега-3 снижает воспаление, улучшает память и поддерживает сердце",
@@ -94,19 +90,8 @@ VIT_FACTS = {
 _chat: dict[str, int] = {}
 
 
-def _webapp_url_with_version(url: str, version: str) -> str:
-    """Append/replace ?v=... so Telegram WebApp updates after deploy."""
-    parts = urlsplit(url)
-    query = dict(parse_qsl(parts.query, keep_blank_values=True))
-    query["v"] = version
-    return urlunsplit((parts.scheme, parts.netloc, parts.path, urlencode(query), parts.fragment))
-
-
-WEBAPP_URL_VERSIONED = _webapp_url_with_version(WEBAPP_URL, WEBAPP_VER) if WEBAPP_URL else ""
-
-
 # ── Build reminders ───────────────────────────────────────────────────────────
-def _pick(pool: list, seed: int) -> Any:
+def _pick(pool: list, seed: int) -> any:
     """Deterministically pick from pool by day-of-year so it varies daily."""
     day = datetime.now().timetuple().tm_yday
     return pool[(day + seed) % len(pool)]
@@ -196,7 +181,7 @@ def build_reminders(profile: dict) -> list[dict]:
             name = meal.get("name", "")
             pool = MEAL_MESSAGES.get(mid)
             if pool:
-                seed = MEAL_SEEDS.get(mid, 0)
+                seed = list(MEAL_MESSAGES.keys()).index(mid) if mid in MEAL_MESSAGES else 0
                 title, tip = _pick(pool, seed)
                 parts.append(f"{title}\n\n{tip}")
             else:
@@ -290,7 +275,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
     _chat[uid] = chat_id   # register so auto-rebuild works without /remind
     print(f"[START] uid={uid} chat_id={chat_id}", flush=True)
-    kb = [[InlineKeyboardButton("📱 Открыть YHealth", web_app=WebAppInfo(url=WEBAPP_URL_VERSIONED))]]
+    kb = [[InlineKeyboardButton("📱 Открыть YHealth", web_app=WebAppInfo(url=WEBAPP_URL))]]
     await update.message.reply_text(
         "👋 Привет! Это YHealth — твой дневник здоровья.\n\n"
         "Настрой профиль в приложении, напоминания включатся автоматически.\n"
@@ -341,7 +326,7 @@ async def setup_reminders(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def send_reminder(context: ContextTypes.DEFAULT_TYPE):
     d  = context.job.data
-    kb = [[InlineKeyboardButton("Открыть трекер", web_app=WebAppInfo(url=WEBAPP_URL_VERSIONED))]]
+    kb = [[InlineKeyboardButton("Открыть трекер", web_app=WebAppInfo(url=WEBAPP_URL))]]
     await context.bot.send_message(
         chat_id=d["chat_id"],
         text=d["text"],
