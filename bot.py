@@ -359,6 +359,25 @@ async def handle_feedback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("Получено, спасибо!")
 
 
+async def rebuild_all_on_startup(context: ContextTypes.DEFAULT_TYPE):
+    """On bot start — restore reminders for every user in the database."""
+    from server import DB, DB_LOCK
+    with DB_LOCK:
+        rows = DB.execute("SELECT uid FROM user_data WHERE key='profile'").fetchall()
+    uids = [r[0] for r in rows]
+    print(f"[STARTUP] rebuilding reminders for {len(uids)} users", flush=True)
+    for uid in uids:
+        profile = db_get(uid, "profile")
+        if not profile:
+            continue
+        # fallback: in private chats chat_id == user_id
+        chat_id = _chat.get(uid) or int(uid)
+        _remove_user_jobs(context.job_queue, chat_id)
+        reminders = build_reminders(profile)
+        _schedule_jobs(context.job_queue, chat_id, uid, reminders)
+        print(f"[STARTUP] uid={uid} → {len(reminders)} reminders", flush=True)
+
+
 # ── Main ──────────────────────────────────────────────────────────────────────
 def main():
     if not TOKEN:    raise ValueError("BOT_TOKEN missing")
@@ -370,8 +389,10 @@ def main():
     app.add_handler(CommandHandler("stop",   stop_reminders))
     app.add_handler(CommandHandler("help",   start))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_feedback))
+    # Restore all reminders on startup (runs once, 5s after start)
+    app.job_queue.run_once(rebuild_all_on_startup, when=5)
     # Auto-rebuild reminders when profile changes (drains queue every 60s)
-    app.job_queue.run_repeating(auto_rebuild_reminders, interval=60, first=10)
+    app.job_queue.run_repeating(auto_rebuild_reminders, interval=60, first=15)
     app.run_polling(drop_pending_updates=True)
 
 
