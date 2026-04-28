@@ -208,9 +208,6 @@ def build_reminders(profile: dict) -> list[dict]:
 
         text = f"⏰ *{t}*\n\n" + "\n\n".join(parts)
 
-        meal_ids = [m.get("id","") for m in slot["meals"] if m.get("id")]
-        vit_ids  = [vid for _, vid in slot["vits"]]
-
         # Clean summary for /remind command (no tips, just items)
         summary_items = []
         for meal in slot["meals"]:
@@ -222,8 +219,7 @@ def build_reminders(profile: dict) -> list[dict]:
             summary_items.append(f"💉 {m}")
         summary = ", ".join(summary_items)
 
-        reminders.append({"time": t, "text": text, "summary": summary,
-                          "meal_ids": meal_ids, "vit_ids": vit_ids})
+        reminders.append({"time": t, "text": text, "summary": summary})
 
     return reminders
 
@@ -233,7 +229,7 @@ def _now_utc() -> datetime:
     return datetime.now(timezone.utc)
 
 
-def _schedule_jobs(jq, chat_id: int, reminders: list[dict], uid: str = ""):
+def _schedule_jobs(jq, chat_id: int, reminders: list[dict]):
     """Register run_daily jobs. Also run_once for reminders that are still
     upcoming today in local time but whose UTC time has already passed
     (happens when the bot restarts after midnight UTC but before local midnight)."""
@@ -249,7 +245,7 @@ def _schedule_jobs(jq, chat_id: int, reminders: list[dict], uid: str = ""):
         jq.run_daily(
             send_reminder,
             time=dtime(utc_h, utc_m, 0),
-            data={"chat_id": chat_id, "uid": uid, "text": r["text"], "local_time": r["time"], "meal_ids": r.get("meal_ids",[]), "vit_ids": r.get("vit_ids",[])},
+            data={"chat_id": chat_id, "text": r["text"], "local_time": r["time"]},
             name=f"rem_{chat_id}_{r['time']}",
         )
 
@@ -263,7 +259,7 @@ def _schedule_jobs(jq, chat_id: int, reminders: list[dict], uid: str = ""):
             jq.run_once(
                 send_reminder,
                 when=target_utc_today + timedelta(days=1),
-                data={"chat_id": chat_id, "uid": uid, "text": r["text"], "local_time": r["time"], "meal_ids": r.get("meal_ids",[]), "vit_ids": r.get("vit_ids",[])},
+                data={"chat_id": chat_id, "text": r["text"], "local_time": r["time"]},
             )
 
 
@@ -305,7 +301,7 @@ async def setup_reminders(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     _remove_user_jobs(context.job_queue, chat_id)
     reminders = build_reminders(profile)
-    _schedule_jobs(context.job_queue, chat_id, reminders, uid)
+    _schedule_jobs(context.job_queue, chat_id, reminders)
     print(f"[REMIND] built {len(reminders)} reminders: {[r['time'] for r in reminders]}", flush=True)
 
     if not reminders:
@@ -330,21 +326,6 @@ async def setup_reminders(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def send_reminder(context: ContextTypes.DEFAULT_TYPE):
     d  = context.job.data
-    # Skip if all items already marked done today
-    uid       = d.get("uid", "")
-    meal_ids  = d.get("meal_ids", [])
-    vit_ids   = d.get("vit_ids", [])
-    if uid and (meal_ids or vit_ids):
-        today    = (datetime.utcnow() + timedelta(hours=TZ_OFFSET)).strftime("%Y-%m-%d")
-        day_data = db_get(uid, "days") or {}
-        day      = day_data.get(today, {})
-        meals_ok = all(day.get("meals", {}).get(m) for m in meal_ids) if meal_ids else True
-        vits_ok  = all(day.get("vitamins", {}).get(v) or
-                       day.get("vitamins", {}).get(v+"_0")
-                       for v in vit_ids) if vit_ids else True
-        if meals_ok and vits_ok:
-            print(f"[SKIP] uid={uid} {d.get('local_time')} already done", flush=True)
-            return
     kb = [[InlineKeyboardButton("Открыть трекер", web_app=WebAppInfo(url=WEBAPP_URL))]]
     await context.bot.send_message(
         chat_id=d["chat_id"],
@@ -381,7 +362,7 @@ async def auto_rebuild_reminders(context: ContextTypes.DEFAULT_TYPE):
 
         _remove_user_jobs(context.job_queue, chat_id)
         reminders = build_reminders(profile)
-        _schedule_jobs(context.job_queue, chat_id, reminders, uid)
+        _schedule_jobs(context.job_queue, chat_id, reminders)
         print(
             f"[AUTO] uid={uid} rebuilt {len(reminders)} reminders: {[r['time'] for r in reminders]}",
             flush=True,
@@ -398,27 +379,6 @@ async def handle_feedback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("Получено, спасибо!")
 
 
-async def rebuild_all_on_startup(context: ContextTypes.DEFAULT_TYPE):
-    """On bot start — restore reminders for every user in the database."""
-    from server import DB, DB_LOCK
-    with DB_LOCK:
-        rows = DB.execute("SELECT uid FROM user_data WHERE key='profile'").fetchall()
-    uids = [r[0] for r in rows]
-    print(f"[STARTUP] rebuilding reminders for {len(uids)} users", flush=True)
-    for uid in uids:
-        try:
-            profile = db_get(uid, "profile")
-            if not profile:
-                continue
-            chat_id = _chat.get(uid) or int(uid)
-            _remove_user_jobs(context.job_queue, chat_id)
-            reminders = build_reminders(profile)
-            _schedule_jobs(context.job_queue, chat_id, reminders, uid)
-            print(f"[STARTUP] uid={uid} → {len(reminders)} reminders", flush=True)
-        except Exception as e:
-            print(f"[STARTUP] uid={uid} error: {e}", flush=True)
-
-
 # ── Main ──────────────────────────────────────────────────────────────────────
 def main():
     if not TOKEN:    raise ValueError("BOT_TOKEN missing")
@@ -430,8 +390,6 @@ def main():
     app.add_handler(CommandHandler("stop",   stop_reminders))
     app.add_handler(CommandHandler("help",   start))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_feedback))
-    # Restore all reminders on startup (5s after start)
-    app.job_queue.run_once(rebuild_all_on_startup, when=5)
     # Auto-rebuild reminders when profile changes (drains queue every 60s)
     app.job_queue.run_repeating(auto_rebuild_reminders, interval=60, first=10)
     app.run_polling(drop_pending_updates=True)
